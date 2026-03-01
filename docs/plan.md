@@ -602,12 +602,12 @@ event-vote/
 ## 16. Implementation Phases
 
 ### Phase 1: Foundation
-- [ ] Project scaffolding (React + Vite + Tailwind + Azure Functions)
-- [ ] Infrastructure (Bicep for SWA Free + Storage + Functions in `rg-event-vote`)
-- [ ] Auth setup (Entra ID + Votekeeper allowlist)
-- [ ] Basic event CRUD API (with prominent event title)
-- [ ] Votekeeper dashboard + create event flow
-- [ ] Local dev setup (`start-dev.ps1` / `start-dev.sh`)
+- [x] Project scaffolding (React + Vite + Tailwind + Azure Functions)
+- [x] Infrastructure (Bicep for SWA Free + Storage + Functions in `rg-event-vote`)
+- [x] Auth setup (Entra ID + Votekeeper allowlist)
+- [x] Basic event CRUD API (with prominent event title)
+- [x] Votekeeper dashboard + create event flow
+- [x] Local dev setup (`start-dev.ps1` / `start-dev.sh`)
 - [ ] Unit test setup (Vitest for functions + components)
 
 ### Phase 2: Core Voting
@@ -615,7 +615,7 @@ event-vote/
 - [ ] Projector-friendly setup view (prominent event title)
 - [ ] QR code generation
 - [ ] Voter name entry
-- [ ] Attendee ballot view (mobile-first, with reset + change votes)
+- [ ] Attendee ballot view (mobile-first, vote reset + change)
 - [ ] Vote submission API with anti-fraud (idempotent upsert by voterId)
 - [ ] Voter reconnect / session restore
 - [ ] Event lifecycle (open → close → reveal → complete)
