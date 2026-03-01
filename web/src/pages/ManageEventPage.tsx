@@ -33,6 +33,16 @@ export default function ManageEventPage() {
     refetchInterval: 3000,
   });
 
+  // Lifecycle mutations (must be before early returns to satisfy React hook rules)
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event', eventId] });
+  const openMutation = useMutation({ mutationFn: () => api.openVoting(eventId!), onSuccess: invalidate });
+  const closeMutation = useMutation({ mutationFn: () => api.closeVoting(eventId!), onSuccess: invalidate });
+  const revealMutation = useMutation({ mutationFn: () => api.reveal(eventId!), onSuccess: invalidate });
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteEvent(eventId!),
+    onSuccess: () => navigate('/dashboard'),
+  });
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -67,16 +77,6 @@ export default function ManageEventPage() {
 
   const voterUrl = `${window.location.origin}/join/${event.id}`;
   const resultsUrl = `${window.location.origin}/results/${event.id}`;
-
-  // Lifecycle mutations
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event', event.id] });
-  const openMutation = useMutation({ mutationFn: () => api.openVoting(event.id), onSuccess: invalidate });
-  const closeMutation = useMutation({ mutationFn: () => api.closeVoting(event.id), onSuccess: invalidate });
-  const revealMutation = useMutation({ mutationFn: () => api.reveal(event.id), onSuccess: invalidate });
-  const deleteMutation = useMutation({
-    mutationFn: () => api.deleteEvent(event.id),
-    onSuccess: () => navigate('/dashboard'),
-  });
 
   // Show projector-friendly reveal view for revealing/complete statuses
   if (event.status === 'revealing' || event.status === 'complete') {
