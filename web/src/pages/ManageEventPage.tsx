@@ -253,7 +253,7 @@ function RevealView({
     }
   }, [revealedCount, prevRevealed]);
 
-  const sorted = results?.results ? [...results.results].sort((a, b) => b.rank - a.rank) : [];
+  const sorted = results?.results ? [...results.results].sort((a, b) => a.rank - b.rank) : [];
   const maxVotes = Math.max(...(sorted.map((r) => r.totalVotes) || [0]), 1);
   const winner = isComplete ? sorted.find((r) => r.rank === 1) : null;
 
