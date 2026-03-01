@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../api.ts';
@@ -172,70 +172,81 @@ function VotingView({
   const [allocations, setAllocations] = useState<Record<string, number>>(
     myVotes?.hasVoted ? myVotes.allocations : local?.allocations ?? {},
   );
-  const [submitted, setSubmitted] = useState(myVotes?.hasVoted ?? local?.hasVoted ?? false);
   const [error, setError] = useState('');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
+    myVotes?.hasVoted || local?.hasVoted ? 'saved' : 'idle',
+  );
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Persist session to localStorage on changes
   useEffect(() => {
-    saveSession(event.id, { voterName, allocations, hasVoted: submitted });
-  }, [event.id, voterName, allocations, submitted]);
+    saveSession(event.id, { voterName, allocations, hasVoted: saveStatus === 'saved' });
+  }, [event.id, voterName, allocations, saveStatus]);
 
   const totalAllocated = Object.values(allocations).reduce((sum, v) => sum + v, 0);
   const remaining = event.config.votesPerAttendee - totalAllocated;
 
   const mutation = useMutation({
-    mutationFn: () =>
-      api.submitVotes(event.id, { voterName: voterName.trim(), allocations }, fingerprint),
+    mutationFn: (vars: { name: string; allocs: Record<string, number> }) =>
+      api.submitVotes(event.id, { voterName: vars.name, allocations: vars.allocs }, fingerprint),
     onSuccess: () => {
-      setSubmitted(true);
+      setSaveStatus('saved');
       setError('');
       queryClient.invalidateQueries({ queryKey: ['myVotes', event.id] });
     },
     onError: (err: Error) => {
+      setSaveStatus('idle');
       if (err instanceof ApiError && err.status === 409) {
         setError('Voting has closed. Your votes were not submitted.');
-        setSubmitted(false);
       } else if (err instanceof ApiError && err.status === 410) {
         setError('This event has expired.');
       } else {
-        setError(err instanceof ApiError ? err.message : 'Failed to submit votes. Check your connection and try again.');
+        setError(err instanceof ApiError ? err.message : 'Failed to save votes. Check your connection.');
       }
     },
   });
 
+  // Auto-submit with debounce
+  const scheduleSubmit = useCallback(
+    (name: string, allocs: Record<string, number>) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      const total = Object.values(allocs).reduce((sum, v) => sum + v, 0);
+      if (!name.trim() || total === 0) return;
+      setSaveStatus('saving');
+      debounceRef.current = setTimeout(() => {
+        mutation.mutate({ name: name.trim(), allocs });
+      }, 1500);
+    },
+    [mutation],
+  );
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   const addVote = (optionId: string) => {
     if (remaining <= 0) return;
-    setAllocations((prev) => ({ ...prev, [optionId]: (prev[optionId] || 0) + 1 }));
-    setSubmitted(false);
+    const next = { ...allocations, [optionId]: (allocations[optionId] || 0) + 1 };
+    setAllocations(next);
+    scheduleSubmit(voterName, next);
   };
 
   const removeVote = (optionId: string) => {
-    setAllocations((prev) => {
-      const current = prev[optionId] || 0;
-      if (current <= 0) return prev;
-      const updated = { ...prev, [optionId]: current - 1 };
-      if (updated[optionId] === 0) delete updated[optionId];
-      return updated;
-    });
-    setSubmitted(false);
-  };
-
-  const handleSubmit = () => {
-    if (!voterName.trim()) {
-      setError('Please enter your name');
-      return;
-    }
-    if (totalAllocated === 0) {
-      setError('Allocate at least one vote');
-      return;
-    }
-    mutation.mutate();
+    const current = allocations[optionId] || 0;
+    if (current <= 0) return;
+    const next = { ...allocations, [optionId]: current - 1 };
+    if (next[optionId] === 0) delete next[optionId];
+    setAllocations(next);
+    scheduleSubmit(voterName, next);
   };
 
   const nameEntered = voterName.trim().length > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 p-4 pb-28">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 p-4 pb-20">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="text-center mb-6 pt-4">
@@ -245,27 +256,21 @@ function VotingView({
           </p>
         </div>
 
-        {/* Voter name — editable until first submission, then read-only */}
-        {submitted || myVotes?.hasVoted ? (
-          <div className="bg-indigo-600/30 rounded-xl p-4 mb-4 text-center">
-            <h2 className="text-lg font-semibold text-white">{voterName.trim()}'s Votes</h2>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl p-4 mb-4 shadow-lg">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
-            <input
-              type="text"
-              value={voterName}
-              onChange={(e) => {
-                setVoterName(e.target.value);
-                setSubmitted(false);
-              }}
-              placeholder="Enter your name to vote"
-              maxLength={100}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none"
-            />
-          </div>
-        )}
+        {/* Voter name */}
+        <div className="bg-white rounded-xl p-4 mb-4 shadow-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+          <input
+            type="text"
+            value={voterName}
+            onChange={(e) => {
+              setVoterName(e.target.value);
+              if (totalAllocated > 0) scheduleSubmit(e.target.value, allocations);
+            }}
+            placeholder="Enter your name to vote"
+            maxLength={100}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
 
         {/* Vote allocation — only visible after name is entered */}
         {nameEntered ? (
@@ -310,8 +315,9 @@ function VotingView({
                 <button
                   onClick={() => {
                     setAllocations({});
-                    setSubmitted(false);
+                    setSaveStatus('idle');
                     clearSession(event.id);
+                    if (debounceRef.current) clearTimeout(debounceRef.current);
                   }}
                   className="text-white/70 hover:text-white text-sm underline"
                 >
@@ -326,48 +332,27 @@ function VotingView({
           </div>
         )}
 
-        {/* Remaining votes - sticky bottom bar on mobile (only when name entered) */}
-        {nameEntered && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 flex items-center justify-between z-40 safe-area-pb">
-          <span
-            className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${
-              remaining > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'
-            }`}
-          >
-            {remaining > 0 ? `${remaining} vote${remaining !== 1 ? 's' : ''} remaining` : 'All votes allocated!'}
-          </span>
-
-          {submitted ? (
-            <span className="text-green-600 font-semibold text-sm">✓ Submitted</span>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={mutation.isPending || totalAllocated === 0}
-              className="bg-indigo-600 text-white font-bold py-2 px-5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors text-sm"
-            >
-              {mutation.isPending ? 'Submitting...' : myVotes?.hasVoted ? 'Update' : 'Submit'}
-            </button>
-          )}
-        </div>
-        )}
-
-        {/* Submit status / change votes */}
+        {/* Error */}
         {error && (
           <div className="bg-red-100 border border-red-300 text-red-700 rounded-xl p-3 mb-3 text-center text-sm">
             {error}
           </div>
         )}
 
-        {submitted && (
-          <div className="bg-green-500 text-white rounded-xl p-4 text-center shadow-lg">
-            <p className="font-semibold text-lg">✓ Votes Submitted!</p>
-            <p className="text-sm text-white/80 mt-1">You can change your votes until voting closes</p>
-            <button
-              onClick={() => setSubmitted(false)}
-              className="mt-3 underline text-sm"
+        {/* Sticky bottom bar — remaining votes + save status */}
+        {nameEntered && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 flex items-center justify-between z-40 safe-area-pb">
+            <span
+              className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${
+                remaining > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'
+              }`}
             >
-              Change Votes
-            </button>
+              {remaining > 0 ? `${remaining} vote${remaining !== 1 ? 's' : ''} remaining` : 'All votes allocated!'}
+            </span>
+            <span className="text-sm">
+              {saveStatus === 'saving' && <span className="text-gray-400 animate-pulse">Saving...</span>}
+              {saveStatus === 'saved' && <span className="text-green-600 font-medium">✓ Saved</span>}
+            </span>
           </div>
         )}
       </div>
