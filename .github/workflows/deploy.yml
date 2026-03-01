@@ -1,0 +1,66 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy to Azure
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Functions ---
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install & build Functions
+        working-directory: functions
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run Functions tests
+        working-directory: functions
+        run: npm run test:run
+
+      # --- Web ---
+      - name: Install & build Web
+        working-directory: web
+        run: |
+          npm ci
+          npx vite build
+
+      # --- Deploy SWA ---
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_DEPLOYMENT_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: web
+          output_location: dist
+          skip_api_build: true
+
+      # --- Deploy Functions ---
+      - name: Prepare Functions package
+        working-directory: functions
+        run: |
+          npm ci --omit=dev
+          cp -r dist/ deploy/
+          cp host.json deploy/
+          cp package.json deploy/
+          cp -r node_modules/ deploy/node_modules/
+
+      - name: Deploy Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ vars.FUNCTION_APP_NAME }}
+          package: functions/deploy
+          publish-profile: ${{ secrets.AZURE_FUNCTIONS_PUBLISH_PROFILE }}

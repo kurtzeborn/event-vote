@@ -17,3 +17,13 @@ html {
 body {
   @apply bg-gray-50 text-gray-900 min-h-screen;
 }
+
+/* Safe area for notched phones */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Prevent iOS zoom on input focus */
+input, select, textarea {
+  font-size: 16px;
+}

@@ -632,14 +632,14 @@ event-vote/
 - [x] PDF export with charts (anonymized vote breakdowns)
 
 ### Phase 4: Polish & Deploy
-- [ ] Polling for live updates
-- [ ] Error handling + edge cases (disconnect recovery, voting closed mid-edit)
-- [ ] Mobile responsiveness fine-tuning
-- [ ] Event expiration / cleanup
+- [x] Polling for live updates
+- [x] Error handling + edge cases (disconnect recovery, voting closed mid-edit)
+- [x] Mobile responsiveness fine-tuning
+- [x] Event expiration / cleanup
 - [ ] Smoke tests (Playwright — create event, vote, reveal flow)
-- [ ] CI/CD pipeline (GitHub Actions — build + unit tests + smoke tests)
-- [ ] Deployment to Azure
-- [ ] README + docs
+- [x] CI/CD pipeline (GitHub Actions — build + unit tests + smoke tests)
+- [x] Deployment to Azure
+- [x] README + docs
 
 ---
 

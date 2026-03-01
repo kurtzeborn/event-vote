@@ -365,6 +365,14 @@ async function getPublicEvent(request: HttpRequest, context: InvocationContext):
       throw err;
     }
 
+    // Check expiration (complete events are still viewable)
+    if (event.expiresAt && event.status !== 'complete') {
+      const expiresAt = new Date(event.expiresAt);
+      if (expiresAt < new Date()) {
+        return { status: 410, jsonBody: { error: 'This event has expired' } };
+      }
+    }
+
     const config = JSON.parse(event.config);
 
     return {

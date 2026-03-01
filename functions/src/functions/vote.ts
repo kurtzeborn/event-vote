@@ -40,7 +40,15 @@ async function submitVotes(request: HttpRequest, context: InvocationContext): Pr
     }
 
     if (event.status !== 'open') {
-      return { status: 400, jsonBody: { error: 'Voting is not currently open for this event' } };
+      return { status: 409, jsonBody: { error: 'Voting is not currently open for this event' } };
+    }
+
+    // Check expiration
+    if (event.expiresAt) {
+      const expiresAt = new Date(event.expiresAt);
+      if (expiresAt < new Date()) {
+        return { status: 410, jsonBody: { error: 'This event has expired' } };
+      }
     }
 
     const body = await request.json() as SubmitVotesRequest;

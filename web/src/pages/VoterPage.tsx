@@ -79,8 +79,10 @@ export default function VoterPage() {
   }
 
   if (eventError) {
-    const errMsg =
-      eventError instanceof ApiError && eventError.status === 404
+    const isExpired = eventError instanceof ApiError && eventError.status === 410;
+    const errMsg = isExpired
+      ? 'This event has expired.'
+      : eventError instanceof ApiError && eventError.status === 404
         ? 'Event not found. Check your code and try again.'
         : 'Failed to load event. Please try again.';
     return <ErrorScreen message={errMsg} />;
@@ -210,7 +212,14 @@ function VotingView({
       queryClient.invalidateQueries({ queryKey: ['voteCounts', event.id] });
     },
     onError: (err: Error) => {
-      setError(err instanceof ApiError ? err.message : 'Failed to submit votes');
+      if (err instanceof ApiError && err.status === 409) {
+        setError('Voting has closed. Your votes were not submitted.');
+        setSubmitted(false);
+      } else if (err instanceof ApiError && err.status === 410) {
+        setError('This event has expired.');
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Failed to submit votes. Check your connection and try again.');
+      }
     },
   });
 
@@ -244,7 +253,7 @@ function VotingView({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 p-4 pb-28">
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="text-center mb-6 pt-4">
@@ -334,25 +343,37 @@ function VotingView({
           </p>
         )}
 
-        {/* Remaining votes */}
-        <div className="text-center mb-4">
+        {/* Remaining votes - sticky bottom bar on mobile */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 flex items-center justify-between z-40 safe-area-pb">
           <span
             className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${
-              remaining > 0 ? 'bg-white/20 text-white' : 'bg-green-500/80 text-white'
+              remaining > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'
             }`}
           >
             {remaining > 0 ? `${remaining} vote${remaining !== 1 ? 's' : ''} remaining` : 'All votes allocated!'}
           </span>
+
+          {submitted ? (
+            <span className="text-green-600 font-semibold text-sm">✓ Submitted</span>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={mutation.isPending || totalAllocated === 0}
+              className="bg-indigo-600 text-white font-bold py-2 px-5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors text-sm"
+            >
+              {mutation.isPending ? 'Submitting...' : myVotes?.hasVoted ? 'Update' : 'Submit'}
+            </button>
+          )}
         </div>
 
-        {/* Submit / status */}
+        {/* Submit status / change votes */}
         {error && (
           <div className="bg-red-100 border border-red-300 text-red-700 rounded-xl p-3 mb-3 text-center text-sm">
             {error}
           </div>
         )}
 
-        {submitted ? (
+        {submitted && (
           <div className="bg-green-500 text-white rounded-xl p-4 text-center shadow-lg">
             <p className="font-semibold text-lg">✓ Votes Submitted!</p>
             <p className="text-sm text-white/80 mt-1">You can change your votes until voting closes</p>
@@ -363,14 +384,6 @@ function VotingView({
               Change Votes
             </button>
           </div>
-        ) : (
-          <button
-            onClick={handleSubmit}
-            disabled={mutation.isPending || totalAllocated === 0}
-            className="w-full bg-white text-indigo-700 font-bold py-4 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-colors text-lg shadow-lg"
-          >
-            {mutation.isPending ? 'Submitting...' : myVotes?.hasVoted ? 'Update Votes' : 'Submit Votes'}
-          </button>
         )}
       </div>
     </div>
