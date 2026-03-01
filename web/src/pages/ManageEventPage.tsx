@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { api } from '../api.ts';
-import type { VoteEvent } from '../types.ts';
+import type { VoteEvent, OptionResult } from '../types.ts';
 
 export default function ManageEventPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -64,6 +64,19 @@ export default function ManageEventPage() {
 
   const voterUrl = `${window.location.origin}/join/${event.id}`;
   const resultsUrl = `${window.location.origin}/results/${event.id}`;
+
+  // Show projector-friendly reveal view for revealing/complete statuses
+  if (event.status === 'revealing' || event.status === 'complete') {
+    return (
+      <RevealView
+        event={event}
+        queryClient={queryClient}
+        navigate={navigate}
+        voterUrl={voterUrl}
+        resultsUrl={resultsUrl}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -137,6 +150,206 @@ export default function ManageEventPage() {
         {/* Lifecycle Actions */}
         <LifecycleActions event={event} queryClient={queryClient} navigate={navigate} />
       </main>
+    </div>
+  );
+}
+
+/* ---- Projector-friendly Reveal View ---- */
+const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+function RevealView({
+  event,
+  queryClient,
+  navigate,
+  voterUrl,
+  resultsUrl,
+}: {
+  event: VoteEvent;
+  queryClient: ReturnType<typeof useQueryClient>;
+  navigate: ReturnType<typeof useNavigate>;
+  voterUrl: string;
+  resultsUrl: string;
+}) {
+  const [prevRevealed, setPrevRevealed] = useState(event.revealedCount ?? 0);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event', event.id] });
+
+  // Fetch results for the reveal
+  const { data: results } = useQuery({
+    queryKey: ['results', event.id],
+    queryFn: () => api.getResults(event.id),
+    refetchInterval: event.status === 'revealing' ? 3000 : false,
+  });
+
+  const revealMutation = useMutation({ mutationFn: () => api.reveal(event.id), onSuccess: invalidate });
+  const completeMutation = useMutation({ mutationFn: () => api.completeEvent(event.id), onSuccess: invalidate });
+
+  const revealedCount = event.revealedCount ?? 0;
+  const totalOptions = event.options?.length ?? 0;
+  const allRevealed = revealedCount >= totalOptions;
+  const isComplete = event.status === 'complete';
+
+  // Track newly-revealed for animation
+  useEffect(() => {
+    if (revealedCount > prevRevealed) {
+      setPrevRevealed(revealedCount);
+    }
+  }, [revealedCount, prevRevealed]);
+
+  const sorted = results?.results ? [...results.results].sort((a, b) => b.rank - a.rank) : [];
+  const maxVotes = Math.max(...(sorted.map((r) => r.totalVotes) || [0]), 1);
+  const winner = isComplete ? sorted.find((r) => r.rank === 1) : null;
+
+  return (
+    <div className="min-h-screen bg-gray-900 p-6 md:p-10 flex flex-col">
+      {/* Top bar - event name + controls */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl md:text-4xl font-bold text-white">{event.name}</h1>
+          <p className="text-gray-400 text-sm mt-1">
+            {isComplete ? 'Final Results' : `Revealed ${revealedCount} of ${totalOptions}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {!isComplete && !allRevealed && (
+            <button
+              onClick={() => revealMutation.mutate()}
+              disabled={revealMutation.isPending}
+              className="bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 disabled:opacity-50 font-bold text-lg transition-colors shadow-lg shadow-purple-600/30"
+            >
+              {revealMutation.isPending ? 'Revealing...' : '🎭 Reveal Next'}
+            </button>
+          )}
+          {!isComplete && allRevealed && (
+            <button
+              onClick={() => completeMutation.mutate()}
+              disabled={completeMutation.isPending}
+              className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 font-bold text-lg transition-colors shadow-lg shadow-blue-600/30"
+            >
+              {completeMutation.isPending ? 'Completing...' : '✓ Complete Event'}
+            </button>
+          )}
+          {isComplete && (
+            <div className="flex gap-2">
+              <a
+                href={api.getPdfUrl(event.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 font-medium transition-colors"
+              >
+                📄 PDF
+              </a>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="bg-gray-700 text-white px-5 py-2.5 rounded-xl hover:bg-gray-600 font-medium transition-colors"
+              >
+                Dashboard
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {!isComplete && (
+        <div className="w-full bg-white/10 rounded-full h-2 mb-8 overflow-hidden">
+          <div
+            className="h-full bg-purple-500 rounded-full transition-all duration-700"
+            style={{ width: `${(revealedCount / Math.max(totalOptions, 1)) * 100}%` }}
+          />
+        </div>
+      )}
+
+      {/* Winner banner */}
+      {winner && <RevealWinnerBanner winner={winner} />}
+
+      {/* Results list */}
+      <div className="space-y-3 flex-1">
+        {sorted.map((result) => {
+          const medal = MEDAL[result.rank];
+          const barWidth = maxVotes > 0 ? (result.totalVotes / maxVotes) * 100 : 0;
+          const isWinner = result.rank === 1 && isComplete;
+          const barColor =
+            result.rank === 1 ? 'bg-yellow-400' :
+            result.rank === 2 ? 'bg-gray-300' :
+            result.rank === 3 ? 'bg-amber-600' :
+            'bg-indigo-400';
+
+          return (
+            <div
+              key={result.optionId}
+              className={`rounded-xl p-5 transition-all duration-700 ${
+                isWinner
+                  ? 'bg-gradient-to-r from-yellow-500/20 to-yellow-600/10 border-2 border-yellow-500/50 shadow-lg shadow-yellow-500/10'
+                  : 'bg-white/5 border border-white/10'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-4">
+                  {medal ? (
+                    <span className="text-4xl">{medal}</span>
+                  ) : (
+                    <span className="text-3xl font-bold text-white/30">#{result.rank}</span>
+                  )}
+                  <div>
+                    <h3 className={`font-bold text-xl ${isWinner ? 'text-yellow-300' : 'text-white'}`}>
+                      {result.title}
+                    </h3>
+                    {result.description && (
+                      <p className="text-white/50 text-sm">{result.description}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`font-bold text-2xl ${isWinner ? 'text-yellow-300' : 'text-white'}`}>
+                    {result.totalVotes}
+                  </div>
+                  <div className="text-white/40 text-sm">
+                    {result.uniqueVoters} voter{result.uniqueVoters !== 1 ? 's' : ''}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white/10 rounded-full h-4 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 ${barColor}`}
+                  style={{ width: `${barWidth}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Share links at bottom */}
+      <div className="mt-8 flex items-center justify-between text-sm text-gray-500">
+        <span>Results: {resultsUrl}</span>
+        <span>Vote: {voterUrl}</span>
+      </div>
+    </div>
+  );
+}
+
+function RevealWinnerBanner({ winner }: { winner: OptionResult }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => { setShow(true); }, []);
+
+  return (
+    <div
+      className={`relative mb-8 rounded-2xl overflow-hidden transition-all duration-1000 ${
+        show ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
+      }`}
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/30 via-amber-400/20 to-yellow-500/30 animate-pulse" />
+      <div className="relative text-center py-8 px-4">
+        <div className="text-6xl mb-3">🏆</div>
+        <h2 className="text-3xl md:text-4xl font-bold text-yellow-300 mb-1">{winner.title}</h2>
+        <p className="text-yellow-100/80">
+          {winner.totalVotes} vote{winner.totalVotes !== 1 ? 's' : ''} from {winner.uniqueVoters} voter{winner.uniqueVoters !== 1 ? 's' : ''}
+        </p>
+        <div className="absolute top-3 left-6 text-2xl animate-bounce" style={{ animationDelay: '0ms' }}>✨</div>
+        <div className="absolute top-5 right-8 text-xl animate-bounce" style={{ animationDelay: '300ms' }}>✨</div>
+        <div className="absolute bottom-3 left-1/4 text-lg animate-bounce" style={{ animationDelay: '600ms' }}>🎉</div>
+        <div className="absolute bottom-4 right-1/3 text-2xl animate-bounce" style={{ animationDelay: '150ms' }}>🎉</div>
+      </div>
     </div>
   );
 }

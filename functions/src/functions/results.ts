@@ -220,7 +220,7 @@ async function generatePdf(request: HttpRequest, context: InvocationContext): Pr
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    const page = pdfDoc.addPage([612, 792]); // Letter size
+    let page = pdfDoc.addPage([612, 792]); // Letter size
     const { width, height } = page.getSize();
     let y = height - 60;
 
@@ -264,11 +264,13 @@ async function generatePdf(request: HttpRequest, context: InvocationContext): Pr
     });
     y -= 25;
 
+    // Medal labels
+    const medalLabel: Record<number, string> = { 1: '(gold)', 2: '(silver)', 3: '(bronze)' };
+
     // Results
     for (const result of ranked) {
       if (y < 80) {
-        // Add a new page
-        const newPage = pdfDoc.addPage([612, 792]);
+        page = pdfDoc.addPage([612, 792]);
         y = height - 60;
       }
 
@@ -279,11 +281,13 @@ async function generatePdf(request: HttpRequest, context: InvocationContext): Pr
         y,
         size: 16,
         font: boldFont,
-        color: result.rank === 1 ? rgb(0.85, 0.65, 0) : rgb(0.2, 0.2, 0.2),
+        color: result.rank === 1 ? rgb(0.85, 0.65, 0) : result.rank === 2 ? rgb(0.5, 0.5, 0.5) : result.rank === 3 ? rgb(0.72, 0.45, 0.2) : rgb(0.2, 0.2, 0.2),
       });
 
-      page.drawText(result.title, {
-        x: 90,
+      const titleX = 90;
+      const titleStr = `${result.title}${medalLabel[result.rank] ? '  ' + medalLabel[result.rank] : ''}`;
+      page.drawText(titleStr, {
+        x: titleX,
         y,
         size: 14,
         font: boldFont,
@@ -303,12 +307,13 @@ async function generatePdf(request: HttpRequest, context: InvocationContext): Pr
       // Bar chart visualization
       const maxVotes = ranked[0]?.totalVotes || 1;
       const barWidth = ((width - 200) * result.totalVotes) / maxVotes;
+      const barColor = result.rank === 1 ? rgb(0.85, 0.65, 0) : result.rank === 2 ? rgb(0.7, 0.7, 0.7) : result.rank === 3 ? rgb(0.72, 0.45, 0.2) : rgb(0.4, 0.6, 0.9);
       page.drawRectangle({
         x: 90,
         y: y - 35,
         width: Math.max(barWidth, 2),
         height: 10,
-        color: result.rank === 1 ? rgb(0.34, 0.75, 0.34) : rgb(0.4, 0.6, 0.9),
+        color: barColor,
       });
 
       y -= 55;

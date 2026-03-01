@@ -608,7 +608,7 @@ event-vote/
 - [x] Basic event CRUD API (with prominent event title)
 - [x] Votekeeper dashboard + create event flow
 - [x] Local dev setup (`start-dev.ps1` / `start-dev.sh`)
-- [ ] Unit test setup (Vitest for functions + components)
+- [x] Unit test setup (Vitest for functions + components)
 
 ### Phase 2: Core Voting
 - [x] Voting option management (add/edit/remove/reorder)
@@ -622,14 +622,14 @@ event-vote/
 - [x] Unit tests for vote service + anti-fraud logic
 
 ### Phase 3: Results Reveal
-- [ ] Vote tallying API (with unique voter tiebreaker)
-- [ ] Reveal state management (server-side tracking)
-- [ ] Last-to-first reveal animation (scavenger-hunt style)
-- [ ] Medal icons for top 3
-- [ ] Winner celebration banner
-- [ ] Attendee results view (synced with reveal)
-- [ ] Shareable results page (public URL, no auth)
-- [ ] PDF export with charts (anonymized vote breakdowns)
+- [x] Vote tallying API (with unique voter tiebreaker)
+- [x] Reveal state management (server-side tracking)
+- [x] Last-to-first reveal animation (scavenger-hunt style)
+- [x] Medal icons for top 3
+- [x] Winner celebration banner
+- [x] Attendee results view (synced with reveal)
+- [x] Shareable results page (public URL, no auth)
+- [x] PDF export with charts (anonymized vote breakdowns)
 
 ### Phase 4: Polish & Deploy
 - [ ] Polling for live updates
