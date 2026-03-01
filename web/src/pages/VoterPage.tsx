@@ -1,9 +1,38 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../api.ts';
 import { getDeviceFingerprint } from '../utils/fingerprint.ts';
 import type { EventPublicResponse, VotingOption, VoterSession, VoteCountsResponse } from '../types.ts';
+
+// --- localStorage session helpers ---
+const SESSION_KEY_PREFIX = 'evote_session_';
+
+interface LocalSession {
+  voterName: string;
+  allocations: Record<string, number>;
+  hasVoted: boolean;
+}
+
+function loadSession(eventId: string): LocalSession | null {
+  try {
+    const raw = localStorage.getItem(`${SESSION_KEY_PREFIX}${eventId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveSession(eventId: string, session: LocalSession) {
+  try {
+    localStorage.setItem(`${SESSION_KEY_PREFIX}${eventId}`, JSON.stringify(session));
+  } catch { /* localStorage full or blocked — ignore */ }
+}
+
+function clearSession(eventId: string) {
+  try { localStorage.removeItem(`${SESSION_KEY_PREFIX}${eventId}`); } catch { /* ignore */ }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+void clearSession; // Used by future cleanup logic
 
 export default function VoterPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -155,12 +184,18 @@ function VotingView({
   fingerprint: string;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
-  const [voterName, setVoterName] = useState(myVotes?.voterName ?? '');
+  const local = loadSession(event.id);
+  const [voterName, setVoterName] = useState(myVotes?.voterName ?? local?.voterName ?? '');
   const [allocations, setAllocations] = useState<Record<string, number>>(
-    myVotes?.hasVoted ? myVotes.allocations : {},
+    myVotes?.hasVoted ? myVotes.allocations : local?.allocations ?? {},
   );
-  const [submitted, setSubmitted] = useState(myVotes?.hasVoted ?? false);
+  const [submitted, setSubmitted] = useState(myVotes?.hasVoted ?? local?.hasVoted ?? false);
   const [error, setError] = useState('');
+
+  // Persist session to localStorage on changes
+  useEffect(() => {
+    saveSession(event.id, { voterName, allocations, hasVoted: submitted });
+  }, [event.id, voterName, allocations, submitted]);
 
   const totalAllocated = Object.values(allocations).reduce((sum, v) => sum + v, 0);
   const remaining = event.config.votesPerAttendee - totalAllocated;
@@ -275,6 +310,21 @@ function VotingView({
             </div>
           ))}
         </div>
+
+        {/* Reset button */}
+        {totalAllocated > 0 && (
+          <div className="text-center mb-3">
+            <button
+              onClick={() => {
+                setAllocations({});
+                setSubmitted(false);
+              }}
+              className="text-white/70 hover:text-white text-sm underline"
+            >
+              Reset All Votes
+            </button>
+          </div>
+        )}
 
         {/* Live total counts */}
         {voteCounts?.displayMode === 'total' && voteCounts.totalVoters !== undefined && (

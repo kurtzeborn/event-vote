@@ -62,7 +62,7 @@ export default function ManageEventPage() {
     );
   }
 
-  const voterUrl = `${window.location.origin}/vote/${event.id}`;
+  const voterUrl = `${window.location.origin}/join/${event.id}`;
   const resultsUrl = `${window.location.origin}/results/${event.id}`;
 
   return (
@@ -172,8 +172,12 @@ function OptionsSection({
 }) {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
 
   const canEdit = event.status === 'setup' || event.status === 'open';
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event', event.id] });
 
   const addMutation = useMutation({
     mutationFn: () =>
@@ -184,18 +188,52 @@ function OptionsSection({
     onSuccess: () => {
       setNewTitle('');
       setNewDesc('');
-      queryClient.invalidateQueries({ queryKey: ['event', event.id] });
+      invalidate();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ optionId, data }: { optionId: string; data: { title?: string; description?: string } }) =>
+      api.updateOption(event.id, optionId, data),
+    onSuccess: () => {
+      setEditingId(null);
+      invalidate();
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (optionId: string) => api.deleteOption(event.id, optionId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event', event.id] });
-    },
+    onSuccess: invalidate,
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: (optionIds: string[]) => api.reorderOptions(event.id, optionIds),
+    onSuccess: invalidate,
   });
 
   const options = event.options ?? [];
+
+  const moveOption = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= options.length) return;
+    const ids = options.map((o) => o.id);
+    [ids[index], ids[newIndex]] = [ids[newIndex], ids[index]];
+    reorderMutation.mutate(ids);
+  };
+
+  const startEdit = (option: { id: string; title: string; description?: string }) => {
+    setEditingId(option.id);
+    setEditTitle(option.title);
+    setEditDesc(option.description ?? '');
+  };
+
+  const saveEdit = (optionId: string) => {
+    if (!editTitle.trim()) return;
+    updateMutation.mutate({
+      optionId,
+      data: { title: editTitle.trim(), description: editDesc.trim() || undefined },
+    });
+  };
 
   return (
     <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -208,26 +246,92 @@ function OptionsSection({
         {options.map((option, index) => (
           <div
             key={option.id}
-            className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3"
+            className="flex items-center gap-2 bg-gray-50 rounded-lg px-4 py-3"
           >
-            <div>
-              <span className="text-gray-400 text-sm mr-2">{index + 1}.</span>
-              <span className="font-medium text-gray-900">{option.title}</span>
-              {option.description && (
-                <span className="text-sm text-gray-500 ml-2">— {option.description}</span>
-              )}
-            </div>
-            {canEdit && (
-              <button
-                onClick={() => {
-                  if (confirm(`Delete "${option.title}"?`)) {
-                    deleteMutation.mutate(option.id);
-                  }
-                }}
-                className="text-red-400 hover:text-red-600 text-sm"
-              >
-                Delete
-              </button>
+            {/* Reorder buttons */}
+            {canEdit && options.length > 1 && (
+              <div className="flex flex-col gap-0.5">
+                <button
+                  onClick={() => moveOption(index, -1)}
+                  disabled={index === 0 || reorderMutation.isPending}
+                  className="text-gray-400 hover:text-gray-600 disabled:opacity-20 text-xs leading-none"
+                  title="Move up"
+                >▲</button>
+                <button
+                  onClick={() => moveOption(index, 1)}
+                  disabled={index === options.length - 1 || reorderMutation.isPending}
+                  className="text-gray-400 hover:text-gray-600 disabled:opacity-20 text-xs leading-none"
+                  title="Move down"
+                >▼</button>
+              </div>
+            )}
+
+            {editingId === option.id ? (
+              /* Inline edit form */
+              <div className="flex-1 space-y-1">
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  maxLength={200}
+                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveEdit(option.id);
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                />
+                <input
+                  type="text"
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  maxLength={500}
+                  placeholder="Description (optional)"
+                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveEdit(option.id);
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => saveEdit(option.id)}
+                    disabled={!editTitle.trim() || updateMutation.isPending}
+                    className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                  >Save</button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="text-gray-400 hover:text-gray-600 text-sm"
+                  >Cancel</button>
+                </div>
+              </div>
+            ) : (
+              /* Display mode */
+              <>
+                <div className="flex-1">
+                  <span className="text-gray-400 text-sm mr-2">{index + 1}.</span>
+                  <span className="font-medium text-gray-900">{option.title}</span>
+                  {option.description && (
+                    <span className="text-sm text-gray-500 ml-2">— {option.description}</span>
+                  )}
+                </div>
+                {canEdit && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => startEdit(option)}
+                      className="text-gray-400 hover:text-indigo-600 text-sm"
+                    >Edit</button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete "${option.title}"?`)) {
+                          deleteMutation.mutate(option.id);
+                        }
+                      }}
+                      className="text-red-400 hover:text-red-600 text-sm"
+                    >Delete</button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         ))}

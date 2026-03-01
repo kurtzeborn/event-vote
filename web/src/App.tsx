@@ -13,7 +13,7 @@ export default function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/vote/:eventId" element={<VoterPage />} />
+        <Route path="/join/:eventId" element={<VoterPage />} />
         <Route path="/results/:eventId" element={<ResultsPage />} />
 
         {/* Votekeeper routes */}

@@ -611,15 +611,15 @@ event-vote/
 - [ ] Unit test setup (Vitest for functions + components)
 
 ### Phase 2: Core Voting
-- [ ] Voting option management (add/edit/remove/reorder)
+- [x] Voting option management (add/edit/remove/reorder)
 - [ ] Projector-friendly setup view (prominent event title)
-- [ ] QR code generation
-- [ ] Voter name entry
-- [ ] Attendee ballot view (mobile-first, vote reset + change)
-- [ ] Vote submission API with anti-fraud (idempotent upsert by voterId)
-- [ ] Voter reconnect / session restore
-- [ ] Event lifecycle (open → close → reveal → complete)
-- [ ] Unit tests for vote service + anti-fraud logic
+- [x] QR code generation
+- [x] Voter name entry
+- [x] Attendee ballot view (mobile-first, vote reset + change)
+- [x] Vote submission API with anti-fraud (idempotent upsert by voterId)
+- [x] Voter reconnect / session restore
+- [x] Event lifecycle (open → close → reveal → complete)
+- [x] Unit tests for vote service + anti-fraud logic
 
 ### Phase 3: Results Reveal
 - [ ] Vote tallying API (with unique voter tiebreaker)

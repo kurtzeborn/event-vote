@@ -76,6 +76,11 @@ export const api = {
     }),
   deleteOption: (eventId: string, optionId: string) =>
     request<void>(`/events/${eventId}/options/${optionId}`, { method: 'DELETE' }),
+  reorderOptions: (eventId: string, optionIds: string[]) =>
+    request<{ success: boolean }>(`/events/${eventId}/options/reorder`, {
+      method: 'PATCH',
+      body: JSON.stringify({ optionIds }),
+    }),
 
   // Voting (public)
   getPublicEvent: (eventId: string) =>

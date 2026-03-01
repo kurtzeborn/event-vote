@@ -198,6 +198,44 @@ async function deleteOption(request: HttpRequest, context: InvocationContext): P
   }
 }
 
+// PATCH /api/events/{eventId}/options/reorder - Reorder options
+async function reorderOptions(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+  try {
+    await ensureTables();
+    const user = await requireVotekeeper(request);
+    const eventId = request.params.eventId;
+
+    const result = await getEventAndValidateOwner(eventId, user.userId);
+    if (isErrorResponse(result)) return result;
+    const event = result;
+
+    if (event.status !== 'setup' && event.status !== 'open') {
+      return { status: 400, jsonBody: { error: 'Can only reorder options during setup or while voting is open' } };
+    }
+
+    const body = await request.json() as { optionIds: string[] };
+    if (!Array.isArray(body.optionIds) || body.optionIds.length === 0) {
+      return { status: 400, jsonBody: { error: 'optionIds array is required' } };
+    }
+
+    // Update each option's order based on position in array
+    const updates: Promise<any>[] = [];
+    for (let i = 0; i < body.optionIds.length; i++) {
+      updates.push(
+        votingOptionsTable.updateEntity(
+          { partitionKey: eventId, rowKey: `option_${body.optionIds[i]}`, order: i + 1 },
+          'Merge',
+        ),
+      );
+    }
+    await Promise.all(updates);
+
+    return { jsonBody: { success: true } };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 function handleError(error: any): HttpResponseInit {
   if (error instanceof AuthError) {
     return { status: error.statusCode, jsonBody: { error: error.message } };
@@ -233,4 +271,11 @@ app.http('deleteOption', {
   authLevel: 'anonymous',
   route: 'events/{eventId}/options/{optionId}',
   handler: deleteOption,
+});
+
+app.http('reorderOptions', {
+  methods: ['PATCH'],
+  authLevel: 'anonymous',
+  route: 'events/{eventId}/options/reorder',
+  handler: reorderOptions,
 });

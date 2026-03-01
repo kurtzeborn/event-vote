@@ -15,7 +15,7 @@ export default function LandingPage() {
       setError('Enter a 4-letter event code');
       return;
     }
-    navigate(`/vote/${trimmed}`);
+    navigate(`/join/${trimmed}`);
   };
 
   return (
