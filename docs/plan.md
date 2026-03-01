@@ -68,7 +68,7 @@ A live event voting app where a **Votekeeper** creates an event, adds voting opt
 | Status | Votekeeper Can... | Attendees Can... |
 |--------|-------------------|------------------|
 | **setup** | Add/edit/remove voting options, configure vote allocation | See event page (no voting yet) |
-| **open** | See live vote display (based on config), still add options, close voting | Cast votes, see options |
+| **open** | See live vote display (based on config), add/delete options, close voting | Cast votes, see options |
 | **closed** | Trigger reveal | See "Voting closed" message |
 | **revealing** | Click to reveal each place one at a time | Watch the reveal |
 | **complete** | See final results, generate shareable report / PDF | See final results, view/download report |
@@ -97,7 +97,7 @@ A live event voting app where a **Votekeeper** creates an event, adds voting opt
      - **Hidden**: No counts shown (blind vote)
      - **Total only** (default): Shows "47 votes cast" — builds excitement without influencing
      - **Per-option**: Shows count next to each option — fun but can create bandwagon effect
-   - Can still add options while voting is open
+   - Can add or delete options while voting is open (voters see changes via polling)
 6. Click "Close Voting"
 7. Click "Reveal Results"
    - Each place revealed one at a time (last → first)
@@ -219,7 +219,7 @@ flowchart LR
 ### Event
 ```typescript
 interface Event {
-  id: string;                    // Short unique ID (also the join code, e.g. "VOTE-A3X9")
+  id: string;                    // Auto-generated 4-letter code (e.g., "ABXK"), filtered against offensive word blocklist
   name: string;                  // Event title — displayed prominently on all views (e.g., "Best Team Costume")
   createdBy: string;             // Votekeeper's user ID
   createdAt: string;             // ISO date
@@ -339,7 +339,7 @@ POST   /api/events/:id/complete        Finalize event (mark complete)
 ```
 POST   /api/events/:id/options         Add voting option
 PUT    /api/events/:id/options/:optId  Update voting option
-DELETE /api/events/:id/options/:optId  Remove voting option (only during setup)
+DELETE /api/events/:id/options/:optId  Remove voting option (setup or open — votes for deleted options discarded)
 PATCH  /api/events/:id/options/reorder Reorder options
 ```
 
@@ -351,7 +351,7 @@ GET    /api/events/:id/vote/:voterId   Get current vote allocations for a voter 
 GET    /api/events/:id/results         Get results (available after reveal starts)
 GET    /api/events/:id/results/status  Poll for reveal progress
 GET    /api/events/:id/report          Get shareable results report data (available after complete)
-GET    /api/events/:id/report/pdf      Generate PDF export of results (available after complete)
+GET    /api/events/:id/report/pdf      Download PDF export (generated server-side once, cached for all)
 ```
 
 ### Votekeeper Management (Votekeeper Only)
@@ -366,7 +366,7 @@ GET    /api/me                         Get current user's auth + votekeeper stat
 - **Rate Limiting**: Vote submission — 5 requests per IP per minute to prevent abuse
 - **Device Fingerprint**: Combines browser characteristics + random session ID
 - **Vote Validation**: Server-side check that total votes ≤ configured allocation
-- **Event Codes**: Short, human-readable codes (e.g., "VOTE-A3X9")
+- **Event Codes**: Auto-generated 4-letter codes, filtered against offensive word blocklist
 
 ---
 
@@ -490,7 +490,8 @@ After reveal is complete, the Votekeeper can generate a shareable report:
   - Bar chart or horizontal bar visualization
   - Anonymized breakdown (no voter names in report)
   - Total voters and total votes cast
-- **Chart Library** — generated client-side (e.g., Chart.js or Recharts) for the web view; server-side rendering for PDF
+- **Chart Library** — Recharts (or Chart.js) for the web view; pdf-lib for server-side PDF generation in Azure Functions
+- **PDF Caching** — PDF generated once on first request, cached and served to all subsequent downloads
 
 ---
 
@@ -550,7 +551,8 @@ event-vote/
 │       │   ├── eventService.ts
 │       │   ├── voteService.ts
 │       │   ├── tableStorageService.ts
-│       │   └── reportService.ts # PDF generation + report data
+│       │   ├── reportService.ts # Report data + server-side PDF generation (pdf-lib)
+│       │   └── codeGenerator.ts # 4-letter event code generation + offensive word filter
 │       └── utils/
 │           ├── auth.ts
 │           └── validation.ts
@@ -660,9 +662,9 @@ event-vote/
 
 ---
 
-## 18. Open Questions
+## 18. Resolved Questions
 
-- [ ] Should the Votekeeper be able to edit voting options after voting has opened?
-- [ ] Do we want to support multiple voting rounds in a single event?
-- [ ] Should the event code be customizable (e.g., "HACKATHON-2026") or always auto-generated?
-- [ ] PDF generation: server-side (e.g., Puppeteer/pdf-lib in Functions) or client-side (html2canvas + jsPDF)?
+- [x] **Votekeeper can add/delete voting options after voting has opened.** Voters see new options appear (via polling). Deleted options have their votes discarded.
+- [x] **Single voting round per event.** Multiple rounds not planned for MVP.
+- [x] **Event codes are auto-generated 4-letter codes** (e.g., "ABXK"). Not customizable. Filtered against a blocklist to avoid offensive combinations.
+- [x] **PDF generation is server-side.** Generated once via pdf-lib (or similar) in Azure Functions, stored as a cached response. All users download the same file via `GET /api/events/:id/report/pdf`.
