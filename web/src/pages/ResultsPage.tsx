@@ -4,13 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { api } from '../api.ts';
 import type { ResultsResponse, OptionResult } from '../types.ts';
-
-const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
-const MEDAL_COLORS: Record<number, string> = {
-  1: 'text-yellow-400',
-  2: 'text-gray-300',
-  3: 'text-amber-600',
-};
+import { MEDAL, MEDAL_COLORS, getRankBarColor, getRankChartColor } from '../constants.ts';
+import WinnerBanner from '../components/WinnerBanner.tsx';
 
 export default function ResultsPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -91,7 +86,6 @@ export default function ResultsPage() {
 
         {/* Winner celebration */}
         {isComplete && winner && <WinnerBanner winner={winner} />}
-
         {/* Results list */}
         <div className="space-y-3">
           {sorted.map((result, index) => (
@@ -134,35 +128,6 @@ export default function ResultsPage() {
   );
 }
 
-/* ---- Winner celebration banner ---- */
-function WinnerBanner({ winner }: { winner: OptionResult }) {
-  const [show, setShow] = useState(false);
-  useEffect(() => { setShow(true); }, []);
-
-  return (
-    <div
-      className={`relative mb-8 rounded-2xl overflow-hidden transition-all duration-1000 ${
-        show ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
-      }`}
-    >
-      {/* Glow background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/30 via-amber-400/20 to-yellow-500/30 animate-pulse" />
-      <div className="relative text-center py-8 px-4">
-        <div className="text-5xl mb-2">🏆</div>
-        <h2 className="text-2xl md:text-3xl font-bold text-yellow-300 mb-1">{winner.title}</h2>
-        <p className="text-yellow-100/80 text-sm">
-          Winner with {winner.totalVotes} vote{winner.totalVotes !== 1 ? 's' : ''} from {winner.uniqueVoters} voter{winner.uniqueVoters !== 1 ? 's' : ''}
-        </p>
-        {/* Decorative sparkles */}
-        <div className="absolute top-2 left-4 text-xl animate-bounce" style={{ animationDelay: '0ms' }}>✨</div>
-        <div className="absolute top-4 right-6 text-lg animate-bounce" style={{ animationDelay: '300ms' }}>✨</div>
-        <div className="absolute bottom-3 left-1/4 text-sm animate-bounce" style={{ animationDelay: '600ms' }}>✨</div>
-        <div className="absolute bottom-2 right-1/3 text-xl animate-bounce" style={{ animationDelay: '150ms' }}>🎉</div>
-      </div>
-    </div>
-  );
-}
-
 /* ---- Individual result card ---- */
 function ResultCard({
   result,
@@ -191,11 +156,7 @@ function ResultCard({
   const medal = MEDAL[result.rank];
   const medalColor = MEDAL_COLORS[result.rank] ?? 'text-white/60';
 
-  const barColor =
-    result.rank === 1 ? 'bg-yellow-400' :
-    result.rank === 2 ? 'bg-gray-300' :
-    result.rank === 3 ? 'bg-amber-600' :
-    'bg-indigo-400';
+  const barColor = getRankBarColor(result.rank);
 
   return (
     <div
@@ -254,13 +215,6 @@ function ResultsChart({ results }: { results: OptionResult[] }) {
       rank: r.rank,
     }));
 
-  const getBarColor = (rank: number) => {
-    if (rank === 1) return '#facc15'; // yellow-400
-    if (rank === 2) return '#d1d5db'; // gray-300
-    if (rank === 3) return '#d97706'; // amber-600
-    return '#818cf8'; // indigo-400
-  };
-
   return (
     <section className="mt-10 bg-white/5 rounded-xl border border-white/10 p-6">
       <h2 className="text-lg font-semibold text-white mb-4 text-center">Vote Distribution</h2>
@@ -275,7 +229,7 @@ function ResultsChart({ results }: { results: OptionResult[] }) {
           />
           <Bar dataKey="votes" radius={[0, 6, 6, 0]}>
             {chartData.map((entry, i) => (
-              <Cell key={i} fill={getBarColor(entry.rank)} />
+              <Cell key={i} fill={getRankChartColor(entry.rank)} />
             ))}
           </Bar>
         </BarChart>

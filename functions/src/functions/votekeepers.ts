@@ -1,15 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { requireVotekeeper, AuthError } from '../auth.js';
-import { votekeepersTable, initializeTables } from '../storage.js';
+import { requireVotekeeper } from '../auth.js';
+import { votekeepersTable } from '../storage.js';
 import { VotekeeperEntity, Votekeeper } from '../types.js';
-
-let tablesInitialized = false;
-async function ensureTables() {
-  if (!tablesInitialized) {
-    await initializeTables();
-    tablesInitialized = true;
-  }
-}
+import { ensureTables, handleError } from '../utils.js';
 
 function entityToVotekeeper(entity: VotekeeperEntity): Votekeeper {
   return {
@@ -141,14 +134,6 @@ async function seedVotekeeper(request: HttpRequest, context: InvocationContext):
   } catch (error) {
     return handleError(error);
   }
-}
-
-function handleError(error: any): HttpResponseInit {
-  if (error instanceof AuthError) {
-    return { status: error.statusCode, jsonBody: { error: error.message } };
-  }
-  console.error('Unexpected error:', error);
-  return { status: 500, jsonBody: { error: 'Internal server error' } };
 }
 
 // Register routes

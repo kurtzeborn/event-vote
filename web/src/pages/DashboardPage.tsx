@@ -4,14 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { api } from '../api.ts';
 import type { VoteEvent } from '../types.ts';
-
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  setup: { label: 'Setup', color: 'bg-gray-200 text-gray-700' },
-  open: { label: 'Voting Open', color: 'bg-green-100 text-green-700' },
-  closed: { label: 'Voting Closed', color: 'bg-yellow-100 text-yellow-700' },
-  revealing: { label: 'Revealing', color: 'bg-purple-100 text-purple-700' },
-  complete: { label: 'Complete', color: 'bg-blue-100 text-blue-700' },
-};
+import { STATUS_LABELS } from '../constants.ts';
 
 export default function DashboardPage() {
   const { isAuthenticated, isVotekeeper, isLoading: authLoading, login } = useAuth();

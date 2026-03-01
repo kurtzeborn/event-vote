@@ -31,9 +31,6 @@ function clearSession(eventId: string) {
   try { localStorage.removeItem(`${SESSION_KEY_PREFIX}${eventId}`); } catch { /* ignore */ }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-void clearSession; // Used by future cleanup logic
-
 export default function VoterPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const queryClient = useQueryClient();
@@ -327,6 +324,7 @@ function VotingView({
               onClick={() => {
                 setAllocations({});
                 setSubmitted(false);
+                clearSession(event.id);
               }}
               className="text-white/70 hover:text-white text-sm underline"
             >

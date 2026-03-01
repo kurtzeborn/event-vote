@@ -1,43 +1,9 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { requireVotekeeper, AuthError } from '../auth.js';
-import { eventsTable, votingOptionsTable, votesTable, initializeTables } from '../storage.js';
+import { requireVotekeeper } from '../auth.js';
+import { eventsTable, votingOptionsTable, votesTable } from '../storage.js';
 import { generateEventCode } from '../services/codeGenerator.js';
 import { CreateEventRequest, EventEntity, VoteEvent, EventConfig, VotingOptionEntity, VotingOption, VoteEntity } from '../types.js';
-
-// Ensure tables exist on first call
-let tablesInitialized = false;
-async function ensureTables() {
-  if (!tablesInitialized) {
-    await initializeTables();
-    tablesInitialized = true;
-  }
-}
-
-function entityToEvent(entity: EventEntity): VoteEvent {
-  return {
-    id: entity.rowKey,
-    name: entity.name,
-    createdBy: entity.createdBy,
-    createdAt: entity.createdAt,
-    status: entity.status,
-    config: JSON.parse(entity.config),
-    openedAt: entity.openedAt,
-    closedAt: entity.closedAt,
-    expiresAt: entity.expiresAt,
-    revealedCount: entity.revealedCount,
-  };
-}
-
-function optionEntityToOption(entity: VotingOptionEntity): VotingOption {
-  return {
-    id: entity.rowKey.replace('option_', ''),
-    eventId: entity.partitionKey,
-    title: entity.title,
-    description: entity.description,
-    order: entity.order,
-    createdAt: entity.createdAt,
-  };
-}
+import { ensureTables, handleError, entityToEvent, entityToOption, getOwnedEventEntity, isErrorResponse } from '../utils.js';
 
 // POST /api/events - Create new event
 async function createEvent(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
@@ -125,12 +91,10 @@ async function getEvent(request: HttpRequest, context: InvocationContext): Promi
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const entity = await eventsTable.getEntity<EventEntity>('event', eventId);
-    const event = entityToEvent(entity);
+    const result = await getOwnedEventEntity(eventId, user.userId);
+    if (isErrorResponse(result)) return result;
 
-    if (event.createdBy !== user.userId) {
-      return { status: 403, jsonBody: { error: 'You are not the votekeeper for this event' } };
-    }
+    const event = entityToEvent(result);
 
     // Also fetch options
     const options: VotingOption[] = [];
@@ -138,15 +102,12 @@ async function getEvent(request: HttpRequest, context: InvocationContext): Promi
       queryOptions: { filter: `PartitionKey eq '${eventId}'` },
     });
     for await (const optEntity of optionEntities) {
-      options.push(optionEntityToOption(optEntity));
+      options.push(entityToOption(optEntity));
     }
     options.sort((a, b) => a.order - b.order);
 
     return { jsonBody: { ...event, options } };
-  } catch (error: any) {
-    if (error.statusCode === 404) {
-      return { status: 404, jsonBody: { error: 'Event not found' } };
-    }
+  } catch (error) {
     return handleError(error);
   }
 }
@@ -158,10 +119,10 @@ async function updateEvent(request: HttpRequest, context: InvocationContext): Pr
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const entity = await eventsTable.getEntity<EventEntity>('event', eventId);
-    if (entity.createdBy !== user.userId) {
-      return { status: 403, jsonBody: { error: 'You are not the votekeeper for this event' } };
-    }
+    const result = await getOwnedEventEntity(eventId, user.userId);
+    if (isErrorResponse(result)) return result;
+    const entity = result;
+
     if (entity.status !== 'setup') {
       return { status: 400, jsonBody: { error: 'Can only update config during setup' } };
     }
@@ -195,10 +156,7 @@ async function updateEvent(request: HttpRequest, context: InvocationContext): Pr
     await eventsTable.updateEntity(entity, 'Merge');
 
     return { jsonBody: entityToEvent(entity) };
-  } catch (error: any) {
-    if (error.statusCode === 404) {
-      return { status: 404, jsonBody: { error: 'Event not found' } };
-    }
+  } catch (error) {
     return handleError(error);
   }
 }
@@ -210,10 +168,8 @@ async function deleteEvent(request: HttpRequest, context: InvocationContext): Pr
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const entity = await eventsTable.getEntity<EventEntity>('event', eventId);
-    if (entity.createdBy !== user.userId) {
-      return { status: 403, jsonBody: { error: 'You are not the votekeeper for this event' } };
-    }
+    const result = await getOwnedEventEntity(eventId, user.userId);
+    if (isErrorResponse(result)) return result;
 
     // Delete all voting options
     const optionEntities = votingOptionsTable.listEntities<VotingOptionEntity>({
@@ -235,10 +191,7 @@ async function deleteEvent(request: HttpRequest, context: InvocationContext): Pr
     await eventsTable.deleteEntity('event', eventId);
 
     return { status: 204 };
-  } catch (error: any) {
-    if (error.statusCode === 404) {
-      return { status: 404, jsonBody: { error: 'Event not found' } };
-    }
+  } catch (error) {
     return handleError(error);
   }
 }
@@ -250,10 +203,10 @@ async function openVoting(request: HttpRequest, context: InvocationContext): Pro
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const entity = await eventsTable.getEntity<EventEntity>('event', eventId);
-    if (entity.createdBy !== user.userId) {
-      return { status: 403, jsonBody: { error: 'You are not the votekeeper for this event' } };
-    }
+    const result = await getOwnedEventEntity(eventId, user.userId);
+    if (isErrorResponse(result)) return result;
+    const entity = result;
+
     if (entity.status !== 'setup') {
       return { status: 400, jsonBody: { error: 'Can only open voting from setup status' } };
     }
@@ -276,10 +229,7 @@ async function openVoting(request: HttpRequest, context: InvocationContext): Pro
     await eventsTable.updateEntity(entity, 'Merge');
 
     return { jsonBody: entityToEvent(entity) };
-  } catch (error: any) {
-    if (error.statusCode === 404) {
-      return { status: 404, jsonBody: { error: 'Event not found' } };
-    }
+  } catch (error) {
     return handleError(error);
   }
 }
@@ -291,10 +241,10 @@ async function closeVoting(request: HttpRequest, context: InvocationContext): Pr
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const entity = await eventsTable.getEntity<EventEntity>('event', eventId);
-    if (entity.createdBy !== user.userId) {
-      return { status: 403, jsonBody: { error: 'You are not the votekeeper for this event' } };
-    }
+    const result = await getOwnedEventEntity(eventId, user.userId);
+    if (isErrorResponse(result)) return result;
+    const entity = result;
+
     if (entity.status !== 'open') {
       return { status: 400, jsonBody: { error: 'Can only close voting when it is open' } };
     }
@@ -304,10 +254,7 @@ async function closeVoting(request: HttpRequest, context: InvocationContext): Pr
     await eventsTable.updateEntity(entity, 'Merge');
 
     return { jsonBody: entityToEvent(entity) };
-  } catch (error: any) {
-    if (error.statusCode === 404) {
-      return { status: 404, jsonBody: { error: 'Event not found' } };
-    }
+  } catch (error) {
     return handleError(error);
   }
 }
@@ -319,10 +266,10 @@ async function reveal(request: HttpRequest, context: InvocationContext): Promise
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const entity = await eventsTable.getEntity<EventEntity>('event', eventId);
-    if (entity.createdBy !== user.userId) {
-      return { status: 403, jsonBody: { error: 'You are not the votekeeper for this event' } };
-    }
+    const result = await getOwnedEventEntity(eventId, user.userId);
+    if (isErrorResponse(result)) return result;
+    const entity = result;
+
     if (entity.status !== 'closed' && entity.status !== 'revealing') {
       return { status: 400, jsonBody: { error: 'Can only reveal results after voting is closed' } };
     }
@@ -357,10 +304,7 @@ async function reveal(request: HttpRequest, context: InvocationContext): Promise
         isComplete: entity.revealedCount! >= totalOptions,
       },
     };
-  } catch (error: any) {
-    if (error.statusCode === 404) {
-      return { status: 404, jsonBody: { error: 'Event not found' } };
-    }
+  } catch (error) {
     return handleError(error);
   }
 }
@@ -372,10 +316,10 @@ async function completeEvent(request: HttpRequest, context: InvocationContext): 
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const entity = await eventsTable.getEntity<EventEntity>('event', eventId);
-    if (entity.createdBy !== user.userId) {
-      return { status: 403, jsonBody: { error: 'You are not the votekeeper for this event' } };
-    }
+    const result = await getOwnedEventEntity(eventId, user.userId);
+    if (isErrorResponse(result)) return result;
+    const entity = result;
+
     if (entity.status !== 'revealing') {
       return { status: 400, jsonBody: { error: 'Can only complete event after revealing' } };
     }
@@ -384,20 +328,9 @@ async function completeEvent(request: HttpRequest, context: InvocationContext): 
     await eventsTable.updateEntity(entity, 'Merge');
 
     return { jsonBody: entityToEvent(entity) };
-  } catch (error: any) {
-    if (error.statusCode === 404) {
-      return { status: 404, jsonBody: { error: 'Event not found' } };
-    }
+  } catch (error) {
     return handleError(error);
   }
-}
-
-function handleError(error: any): HttpResponseInit {
-  if (error instanceof AuthError) {
-    return { status: error.statusCode, jsonBody: { error: error.message } };
-  }
-  console.error('Unexpected error:', error);
-  return { status: 500, jsonBody: { error: 'Internal server error' } };
 }
 
 // Register all event routes

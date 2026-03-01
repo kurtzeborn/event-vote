@@ -1,27 +1,10 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { requireVotekeeper, AuthError } from '../auth.js';
-import { eventsTable, votingOptionsTable, votesTable, initializeTables } from '../storage.js';
-import { EventEntity, VotingOptionEntity, VoteEntity, OptionResult, ResultsResponse, RevealStatusResponse } from '../types.js';
+import { votingOptionsTable, votesTable } from '../storage.js';
+import { VotingOptionEntity, VoteEntity, OptionResult, ResultsResponse, RevealStatusResponse } from '../types.js';
+import { ensureTables, handleError, getEventEntity, isErrorResponse, parseEventConfig } from '../utils.js';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-let tablesInitialized = false;
-async function ensureTables() {
-  if (!tablesInitialized) {
-    await initializeTables();
-    tablesInitialized = true;
-  }
-}
-
-interface RankedOption {
-  optionId: string;
-  title: string;
-  description?: string;
-  totalVotes: number;
-  uniqueVoters: number;
-  rank: number;
-}
-
-async function getRankedResults(eventId: string): Promise<{ ranked: RankedOption[]; totalVotes: number; totalVoters: number }> {
+async function getRankedResults(eventId: string): Promise<{ ranked: OptionResult[]; totalVotes: number; totalVoters: number }> {
   // Fetch all options
   const optionEntities = votingOptionsTable.listEntities<VotingOptionEntity>({
     queryOptions: { filter: `PartitionKey eq '${eventId}'` },
@@ -52,7 +35,7 @@ async function getRankedResults(eventId: string): Promise<{ ranked: RankedOption
   }
 
   // Build ranked list
-  const results: RankedOption[] = [];
+  const results: OptionResult[] = [];
   for (const [optionId, optEntity] of optionMap) {
     results.push({
       optionId,
@@ -93,15 +76,9 @@ async function getResults(request: HttpRequest, context: InvocationContext): Pro
     await ensureTables();
     const eventId = request.params.eventId;
 
-    let event: EventEntity;
-    try {
-      event = await eventsTable.getEntity<EventEntity>('event', eventId);
-    } catch (err: any) {
-      if (err.statusCode === 404) {
-        return { status: 404, jsonBody: { error: 'Event not found' } };
-      }
-      throw err;
-    }
+    const result = await getEventEntity(eventId);
+    if (isErrorResponse(result)) return result;
+    const event = result;
 
     // Results only available after voting closes
     if (event.status === 'setup' || event.status === 'open') {
@@ -115,8 +92,6 @@ async function getResults(request: HttpRequest, context: InvocationContext): Pro
     let visibleResults: OptionResult[];
     if (event.status === 'revealing') {
       // Reveal from bottom: show lowest ranked first
-      const toReveal = ranked.slice(ranked.length - revealedCount).reverse();
-      // Reverse back to rank order (lowest rank first = worst performer shown first)
       visibleResults = ranked
         .slice(ranked.length - revealedCount)
         .map((r) => ({
@@ -142,7 +117,7 @@ async function getResults(request: HttpRequest, context: InvocationContext): Pro
     const response: ResultsResponse = {
       eventId,
       eventName: event.name,
-      status: event.status as any,
+      status: event.status,
       totalVotes,
       totalVoters,
       revealedCount,
@@ -162,15 +137,9 @@ async function getRevealStatus(request: HttpRequest, context: InvocationContext)
     await ensureTables();
     const eventId = request.params.eventId;
 
-    let event: EventEntity;
-    try {
-      event = await eventsTable.getEntity<EventEntity>('event', eventId);
-    } catch (err: any) {
-      if (err.statusCode === 404) {
-        return { status: 404, jsonBody: { error: 'Event not found' } };
-      }
-      throw err;
-    }
+    const result = await getEventEntity(eventId);
+    if (isErrorResponse(result)) return result;
+    const event = result;
 
     // Count total options
     const optionEntities = votingOptionsTable.listEntities<VotingOptionEntity>({
@@ -182,7 +151,7 @@ async function getRevealStatus(request: HttpRequest, context: InvocationContext)
     }
 
     const response: RevealStatusResponse = {
-      status: event.status as any,
+      status: event.status,
       revealedCount: event.revealedCount ?? 0,
       totalOptions,
     };
@@ -199,15 +168,9 @@ async function generatePdf(request: HttpRequest, context: InvocationContext): Pr
     await ensureTables();
     const eventId = request.params.eventId;
 
-    let event: EventEntity;
-    try {
-      event = await eventsTable.getEntity<EventEntity>('event', eventId);
-    } catch (err: any) {
-      if (err.statusCode === 404) {
-        return { status: 404, jsonBody: { error: 'Event not found' } };
-      }
-      throw err;
-    }
+    const result = await getEventEntity(eventId);
+    if (isErrorResponse(result)) return result;
+    const event = result;
 
     if (event.status !== 'complete') {
       return { status: 400, jsonBody: { error: 'PDF report is only available after event is complete' } };
@@ -355,15 +318,9 @@ async function getPublicEvent(request: HttpRequest, context: InvocationContext):
     await ensureTables();
     const eventId = request.params.eventId;
 
-    let event: EventEntity;
-    try {
-      event = await eventsTable.getEntity<EventEntity>('event', eventId);
-    } catch (err: any) {
-      if (err.statusCode === 404) {
-        return { status: 404, jsonBody: { error: 'Event not found' } };
-      }
-      throw err;
-    }
+    const result = await getEventEntity(eventId);
+    if (isErrorResponse(result)) return result;
+    const event = result;
 
     // Check expiration (complete events are still viewable)
     if (event.expiresAt && event.status !== 'complete') {
@@ -373,7 +330,7 @@ async function getPublicEvent(request: HttpRequest, context: InvocationContext):
       }
     }
 
-    const config = JSON.parse(event.config);
+    const config = parseEventConfig(event);
 
     return {
       jsonBody: {
@@ -389,14 +346,6 @@ async function getPublicEvent(request: HttpRequest, context: InvocationContext):
   } catch (error) {
     return handleError(error);
   }
-}
-
-function handleError(error: any): HttpResponseInit {
-  if (error instanceof AuthError) {
-    return { status: error.statusCode, jsonBody: { error: error.message } };
-  }
-  console.error('Unexpected error:', error);
-  return { status: 500, jsonBody: { error: 'Internal server error' } };
 }
 
 // Register routes

@@ -5,6 +5,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { api } from '../api.ts';
 import type { VoteEvent, OptionResult } from '../types.ts';
+import { MEDAL, STATUS_LABELS, getRankBarColor } from '../constants.ts';
+import WinnerBanner from '../components/WinnerBanner.tsx';
 
 export default function ManageEventPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -155,7 +157,6 @@ export default function ManageEventPage() {
 }
 
 /* ---- Projector-friendly Reveal View ---- */
-const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 function RevealView({
   event,
@@ -260,7 +261,7 @@ function RevealView({
       )}
 
       {/* Winner banner */}
-      {winner && <RevealWinnerBanner winner={winner} />}
+      {winner && <WinnerBanner winner={winner} large />}
 
       {/* Results list */}
       <div className="space-y-3 flex-1">
@@ -268,11 +269,7 @@ function RevealView({
           const medal = MEDAL[result.rank];
           const barWidth = maxVotes > 0 ? (result.totalVotes / maxVotes) * 100 : 0;
           const isWinner = result.rank === 1 && isComplete;
-          const barColor =
-            result.rank === 1 ? 'bg-yellow-400' :
-            result.rank === 2 ? 'bg-gray-300' :
-            result.rank === 3 ? 'bg-amber-600' :
-            'bg-indigo-400';
+          const barColor = getRankBarColor(result.rank);
 
           return (
             <div
@@ -328,50 +325,11 @@ function RevealView({
   );
 }
 
-function RevealWinnerBanner({ winner }: { winner: OptionResult }) {
-  const [show, setShow] = useState(false);
-  useEffect(() => { setShow(true); }, []);
-
-  return (
-    <div
-      className={`relative mb-8 rounded-2xl overflow-hidden transition-all duration-1000 ${
-        show ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
-      }`}
-    >
-      <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/30 via-amber-400/20 to-yellow-500/30 animate-pulse" />
-      <div className="relative text-center py-8 px-4">
-        <div className="text-6xl mb-3">🏆</div>
-        <h2 className="text-3xl md:text-4xl font-bold text-yellow-300 mb-1">{winner.title}</h2>
-        <p className="text-yellow-100/80">
-          {winner.totalVotes} vote{winner.totalVotes !== 1 ? 's' : ''} from {winner.uniqueVoters} voter{winner.uniqueVoters !== 1 ? 's' : ''}
-        </p>
-        <div className="absolute top-3 left-6 text-2xl animate-bounce" style={{ animationDelay: '0ms' }}>✨</div>
-        <div className="absolute top-5 right-8 text-xl animate-bounce" style={{ animationDelay: '300ms' }}>✨</div>
-        <div className="absolute bottom-3 left-1/4 text-lg animate-bounce" style={{ animationDelay: '600ms' }}>🎉</div>
-        <div className="absolute bottom-4 right-1/3 text-2xl animate-bounce" style={{ animationDelay: '150ms' }}>🎉</div>
-      </div>
-    </div>
-  );
-}
-
 function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    setup: 'bg-gray-200 text-gray-700',
-    open: 'bg-green-100 text-green-700',
-    closed: 'bg-yellow-100 text-yellow-700',
-    revealing: 'bg-purple-100 text-purple-700',
-    complete: 'bg-blue-100 text-blue-700',
-  };
-  const labels: Record<string, string> = {
-    setup: 'Setup',
-    open: 'Voting Open',
-    closed: 'Voting Closed',
-    revealing: 'Revealing',
-    complete: 'Complete',
-  };
+  const style = STATUS_LABELS[status] || STATUS_LABELS.setup;
   return (
-    <span className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status] || styles.setup}`}>
-      {labels[status] || status}
+    <span className={`px-3 py-1 rounded-full text-sm font-medium ${style.color}`}>
+      {style.label}
     </span>
   );
 }

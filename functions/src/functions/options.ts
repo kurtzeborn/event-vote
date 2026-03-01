@@ -1,46 +1,9 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { requireVotekeeper, AuthError } from '../auth.js';
-import { eventsTable, votingOptionsTable, initializeTables } from '../storage.js';
-import { CreateOptionRequest, UpdateOptionRequest, EventEntity, VotingOptionEntity, VotingOption } from '../types.js';
+import { requireVotekeeper } from '../auth.js';
+import { votingOptionsTable } from '../storage.js';
+import { CreateOptionRequest, UpdateOptionRequest, VotingOptionEntity, VotingOption } from '../types.js';
+import { ensureTables, handleError, entityToOption, getOwnedEventEntity, isErrorResponse } from '../utils.js';
 import { v4 as uuidv4 } from 'uuid';
-
-let tablesInitialized = false;
-async function ensureTables() {
-  if (!tablesInitialized) {
-    await initializeTables();
-    tablesInitialized = true;
-  }
-}
-
-function entityToOption(entity: VotingOptionEntity): VotingOption {
-  return {
-    id: entity.rowKey.replace('option_', ''),
-    eventId: entity.partitionKey,
-    title: entity.title,
-    description: entity.description,
-    order: entity.order,
-    createdAt: entity.createdAt,
-  };
-}
-
-async function getEventAndValidateOwner(eventId: string, userId: string): Promise<EventEntity | HttpResponseInit> {
-  try {
-    const entity = await eventsTable.getEntity<EventEntity>('event', eventId);
-    if (entity.createdBy !== userId) {
-      return { status: 403, jsonBody: { error: 'You are not the votekeeper for this event' } };
-    }
-    return entity;
-  } catch (err: any) {
-    if (err.statusCode === 404) {
-      return { status: 404, jsonBody: { error: 'Event not found' } };
-    }
-    throw err;
-  }
-}
-
-function isErrorResponse(result: any): result is HttpResponseInit {
-  return result && 'status' in result && typeof result.status === 'number';
-}
 
 // POST /api/events/{eventId}/options - Add a voting option
 async function addOption(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
@@ -49,7 +12,7 @@ async function addOption(request: HttpRequest, context: InvocationContext): Prom
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getEventAndValidateOwner(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userId);
     if (isErrorResponse(result)) return result;
     const event = result;
 
@@ -124,7 +87,7 @@ async function updateOption(request: HttpRequest, context: InvocationContext): P
     const eventId = request.params.eventId;
     const optionId = request.params.optionId;
 
-    const result = await getEventAndValidateOwner(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userId);
     if (isErrorResponse(result)) return result;
     const event = result;
 
@@ -174,7 +137,7 @@ async function deleteOption(request: HttpRequest, context: InvocationContext): P
     const eventId = request.params.eventId;
     const optionId = request.params.optionId;
 
-    const result = await getEventAndValidateOwner(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userId);
     if (isErrorResponse(result)) return result;
     const event = result;
 
@@ -205,7 +168,7 @@ async function reorderOptions(request: HttpRequest, context: InvocationContext):
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getEventAndValidateOwner(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userId);
     if (isErrorResponse(result)) return result;
     const event = result;
 
@@ -234,14 +197,6 @@ async function reorderOptions(request: HttpRequest, context: InvocationContext):
   } catch (error) {
     return handleError(error);
   }
-}
-
-function handleError(error: any): HttpResponseInit {
-  if (error instanceof AuthError) {
-    return { status: error.statusCode, jsonBody: { error: error.message } };
-  }
-  console.error('Unexpected error:', error);
-  return { status: 500, jsonBody: { error: 'Internal server error' } };
 }
 
 // Register routes

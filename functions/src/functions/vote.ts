@@ -1,16 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { AuthError } from '../auth.js';
-import { eventsTable, votingOptionsTable, votesTable, initializeTables } from '../storage.js';
-import { SubmitVotesRequest, EventEntity, VoteEntity, VotingOptionEntity } from '../types.js';
+import { votingOptionsTable, votesTable } from '../storage.js';
+import { SubmitVotesRequest, VoteEntity, VotingOptionEntity } from '../types.js';
+import { ensureTables, handleError, getEventEntity, isErrorResponse, parseEventConfig } from '../utils.js';
 import { v4 as uuidv4 } from 'uuid';
-
-let tablesInitialized = false;
-async function ensureTables() {
-  if (!tablesInitialized) {
-    await initializeTables();
-    tablesInitialized = true;
-  }
-}
 
 function getDeviceFingerprint(request: HttpRequest): string {
   return request.headers.get('x-device-fingerprint') || 'unknown';
@@ -29,15 +21,9 @@ async function submitVotes(request: HttpRequest, context: InvocationContext): Pr
     const eventId = request.params.eventId;
 
     // Verify event exists and is open
-    let event: EventEntity;
-    try {
-      event = await eventsTable.getEntity<EventEntity>('event', eventId);
-    } catch (err: any) {
-      if (err.statusCode === 404) {
-        return { status: 404, jsonBody: { error: 'Event not found' } };
-      }
-      throw err;
-    }
+    const result = await getEventEntity(eventId);
+    if (isErrorResponse(result)) return result;
+    const event = result;
 
     if (event.status !== 'open') {
       return { status: 409, jsonBody: { error: 'Voting is not currently open for this event' } };
@@ -62,7 +48,7 @@ async function submitVotes(request: HttpRequest, context: InvocationContext): Pr
     }
 
     // Validate allocations
-    const config = JSON.parse(event.config);
+    const config = parseEventConfig(event);
     const totalVotes = Object.values(body.allocations).reduce((sum: number, v: number) => sum + v, 0);
     if (totalVotes > config.votesPerAttendee) {
       return { status: 400, jsonBody: { error: `You can allocate a maximum of ${config.votesPerAttendee} votes` } };
@@ -187,17 +173,11 @@ async function getVoteCounts(request: HttpRequest, context: InvocationContext): 
     const eventId = request.params.eventId;
 
     // Get event to check display mode
-    let event: EventEntity;
-    try {
-      event = await eventsTable.getEntity<EventEntity>('event', eventId);
-    } catch (err: any) {
-      if (err.statusCode === 404) {
-        return { status: 404, jsonBody: { error: 'Event not found' } };
-      }
-      throw err;
-    }
+    const result = await getEventEntity(eventId);
+    if (isErrorResponse(result)) return result;
+    const event = result;
 
-    const config = JSON.parse(event.config);
+    const config = parseEventConfig(event);
 
     // Count votes
     const votes = votesTable.listEntities<VoteEntity>({
@@ -240,14 +220,6 @@ async function getVoteCounts(request: HttpRequest, context: InvocationContext): 
   } catch (error) {
     return handleError(error);
   }
-}
-
-function handleError(error: any): HttpResponseInit {
-  if (error instanceof AuthError) {
-    return { status: error.statusCode, jsonBody: { error: error.message } };
-  }
-  console.error('Unexpected error:', error);
-  return { status: 500, jsonBody: { error: 'Internal server error' } };
 }
 
 // Register routes
