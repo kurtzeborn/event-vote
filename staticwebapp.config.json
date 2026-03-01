@@ -1,0 +1,22 @@
+{
+  "routes": [
+    {
+      "route": "/.auth/login/aad",
+      "rewrite": "/.auth/login/aad"
+    },
+    {
+      "route": "/.auth/logout",
+      "rewrite": "/.auth/logout"
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/.auth/*", "/assets/*", "*.js", "*.css", "*.svg", "*.png", "*.jpg", "*.ico"]
+  },
+  "responseOverrides": {
+    "401": {
+      "statusCode": 401,
+      "redirect": "/"
+    }
+  }
+}

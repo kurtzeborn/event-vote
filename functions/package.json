@@ -1,0 +1,29 @@
+{
+  "name": "event-vote-functions",
+  "version": "1.0.0",
+  "description": "Azure Functions API for Event Vote",
+  "main": "dist/src/functions/*.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "start": "npm run build && func start",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.2",
+    "@azure/functions": "^4.11.2",
+    "pdf-lib": "^1.17.1",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "azure-functions-core-tools": "^4.x",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
