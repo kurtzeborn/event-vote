@@ -190,6 +190,7 @@ function VotingView({
   );
   const [submitted, setSubmitted] = useState(myVotes?.hasVoted ?? local?.hasVoted ?? false);
   const [error, setError] = useState('');
+  const [showPerOption, setShowPerOption] = useState(false);
 
   // Persist session to localStorage on changes
   useEffect(() => {
@@ -296,8 +297,8 @@ function VotingView({
                       {option.description && (
                         <p className="text-sm text-gray-500 mt-0.5">{option.description}</p>
                       )}
-                      {/* Live vote counts */}
-                      {voteCounts?.displayMode === 'per-option' && voteCounts.perOption && (
+                      {/* Live vote counts per option */}
+                      {showPerOption && voteCounts?.perOption && (
                         <p className="text-xs text-indigo-500 mt-1">
                           {voteCounts.perOption[option.id] ?? 0} votes
                         </p>
@@ -349,12 +350,20 @@ function VotingView({
           </div>
         )}
 
-        {/* Live total counts */}
-        {voteCounts?.displayMode === 'total' && voteCounts.totalVoters !== undefined && (
-          <p className="text-center text-white/70 text-sm mb-3">
-            {voteCounts.totalVoters} voter{voteCounts.totalVoters !== 1 ? 's' : ''} so far
-            ({voteCounts.totalVotes} total votes)
-          </p>
+        {/* Live total counts + per-option toggle */}
+        {voteCounts && (
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <p className="text-white/70 text-sm">
+              {voteCounts.totalVoters} voter{voteCounts.totalVoters !== 1 ? 's' : ''} so far
+              ({voteCounts.totalVotes} total votes)
+            </p>
+            <button
+              onClick={() => setShowPerOption((v) => !v)}
+              className="text-white/60 hover:text-white text-xs underline transition-colors"
+            >
+              {showPerOption ? 'Hide' : 'Show'} per-option
+            </button>
+          </div>
         )}
 
         {/* Remaining votes - sticky bottom bar on mobile (only when name entered) */}

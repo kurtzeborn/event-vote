@@ -339,7 +339,6 @@ async function getPublicEvent(request: HttpRequest, context: InvocationContext):
         status: event.status,
         config: {
           votesPerAttendee: config.votesPerAttendee,
-          liveVoteDisplay: config.liveVoteDisplay,
         },
       },
     };

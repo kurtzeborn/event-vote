@@ -172,12 +172,9 @@ async function getVoteCounts(request: HttpRequest, context: InvocationContext): 
     await ensureTables();
     const eventId = request.params.eventId;
 
-    // Get event to check display mode
+    // Get event to verify it exists
     const result = await getEventEntity(eventId);
     if (isErrorResponse(result)) return result;
-    const event = result;
-
-    const config = parseEventConfig(event);
 
     // Count votes
     const votes = votesTable.listEntities<VoteEntity>({
@@ -194,27 +191,11 @@ async function getVoteCounts(request: HttpRequest, context: InvocationContext): 
       perOption[vote.optionId] = (perOption[vote.optionId] || 0) + vote.voteCount;
     }
 
-    const response: any = {
-      displayMode: config.liveVoteDisplay,
+    const response = {
+      totalVotes: totalVotes,
+      totalVoters: uniqueVoters.size,
+      perOption: perOption,
     };
-
-    if (config.liveVoteDisplay === 'hidden' && event.status === 'open') {
-      response.totalVoters = uniqueVoters.size;
-    } else if (config.liveVoteDisplay === 'total') {
-      response.totalVotes = totalVotes;
-      response.totalVoters = uniqueVoters.size;
-    } else if (config.liveVoteDisplay === 'per-option') {
-      response.totalVotes = totalVotes;
-      response.totalVoters = uniqueVoters.size;
-      response.perOption = perOption;
-    }
-
-    // Always show full counts when not open (post-voting)
-    if (event.status !== 'open') {
-      response.totalVotes = totalVotes;
-      response.totalVoters = uniqueVoters.size;
-      response.perOption = perOption;
-    }
 
     return { jsonBody: response };
   } catch (error) {

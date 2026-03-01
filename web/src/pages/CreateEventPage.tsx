@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { api, ApiError } from '../api.ts';
-import type { LiveVoteDisplay } from '../types.ts';
 
 export default function CreateEventPage() {
   const { isVotekeeper, isLoading: authLoading, login } = useAuth();
@@ -11,14 +10,13 @@ export default function CreateEventPage() {
 
   const [name, setName] = useState('');
   const [votesPerAttendee, setVotesPerAttendee] = useState(3);
-  const [liveVoteDisplay, setLiveVoteDisplay] = useState<LiveVoteDisplay>('total');
   const [error, setError] = useState('');
 
   const createMutation = useMutation({
     mutationFn: () =>
       api.createEvent({
         name: name.trim(),
-        config: { votesPerAttendee, liveVoteDisplay },
+        config: { votesPerAttendee },
       }),
     onSuccess: (event) => {
       navigate(`/manage/${event.id}`);
@@ -108,42 +106,6 @@ export default function CreateEventPage() {
             <p className="text-xs text-gray-400 mt-1">
               Each voter can distribute this many votes across options.
             </p>
-          </div>
-
-          {/* Live Vote Display */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Live Vote Display
-            </label>
-            <div className="space-y-2">
-              {[
-                { value: 'hidden' as const, label: 'Hidden', desc: 'Only show voter count, not vote tallies' },
-                { value: 'total' as const, label: 'Total Only', desc: 'Show total vote count and voter count' },
-                { value: 'per-option' as const, label: 'Per Option', desc: 'Show vote count for each option' },
-              ].map((opt) => (
-                <label
-                  key={opt.value}
-                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                    liveVoteDisplay === opt.value
-                      ? 'border-indigo-500 bg-indigo-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="display"
-                    value={opt.value}
-                    checked={liveVoteDisplay === opt.value}
-                    onChange={() => setLiveVoteDisplay(opt.value)}
-                    className="mt-1"
-                  />
-                  <div>
-                    <span className="font-medium text-gray-900">{opt.label}</span>
-                    <p className="text-sm text-gray-500">{opt.desc}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
           </div>
 
           {/* Error */}

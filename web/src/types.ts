@@ -1,7 +1,6 @@
 /** Shared types between web and functions (matching functions/src/types.ts) */
 
 export type EventStatus = 'setup' | 'open' | 'closed' | 'revealing' | 'complete';
-export type LiveVoteDisplay = 'hidden' | 'total' | 'per-option';
 
 export interface AuthUser {
   userId: string;
@@ -17,7 +16,6 @@ export interface MeResponse {
 
 export interface EventConfig {
   votesPerAttendee: number;
-  liveVoteDisplay: LiveVoteDisplay;
 }
 
 export interface VoteEvent {
@@ -76,10 +74,9 @@ export interface VoterSession {
 }
 
 export interface VoteCountsResponse {
-  displayMode: LiveVoteDisplay;
-  totalVotes?: number;
-  totalVoters?: number;
-  perOption?: Record<string, number>;
+  totalVotes: number;
+  totalVoters: number;
+  perOption: Record<string, number>;
 }
 
 export interface EventPublicResponse {
@@ -88,6 +85,5 @@ export interface EventPublicResponse {
   status: EventStatus;
   config: {
     votesPerAttendee: number;
-    liveVoteDisplay: LiveVoteDisplay;
   };
 }

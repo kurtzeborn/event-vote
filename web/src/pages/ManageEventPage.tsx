@@ -190,18 +190,14 @@ export default function ManageEventPage() {
           <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Live Stats</h2>
             <div className="flex gap-8">
-              {voteCounts.data.totalVoters !== undefined && (
-                <div>
-                  <div className="text-3xl font-bold text-indigo-600">{voteCounts.data.totalVoters}</div>
-                  <div className="text-sm text-gray-500">Voters</div>
-                </div>
-              )}
-              {voteCounts.data.totalVotes !== undefined && (
-                <div>
-                  <div className="text-3xl font-bold text-indigo-600">{voteCounts.data.totalVotes}</div>
-                  <div className="text-sm text-gray-500">Total Votes</div>
-                </div>
-              )}
+              <div>
+                <div className="text-3xl font-bold text-indigo-600">{voteCounts.data.totalVoters}</div>
+                <div className="text-sm text-gray-500">Voters</div>
+              </div>
+              <div>
+                <div className="text-3xl font-bold text-indigo-600">{voteCounts.data.totalVotes}</div>
+                <div className="text-sm text-gray-500">Total Votes</div>
+              </div>
             </div>
           </section>
         )}

@@ -18,11 +18,9 @@ export interface MeResponse {
 // === Domain Types ===
 
 export type EventStatus = 'setup' | 'open' | 'closed' | 'revealing' | 'complete';
-export type LiveVoteDisplay = 'hidden' | 'total' | 'per-option';
 
 export interface EventConfig {
   votesPerAttendee: number;     // Default 3, configurable 1-10
-  liveVoteDisplay: LiveVoteDisplay; // Default 'total'
 }
 
 export interface VoteEvent {

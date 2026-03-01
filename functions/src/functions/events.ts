@@ -25,15 +25,11 @@ async function createEvent(request: HttpRequest, context: InvocationContext): Pr
 
     const config: EventConfig = {
       votesPerAttendee: body.config?.votesPerAttendee ?? 3,
-      liveVoteDisplay: body.config?.liveVoteDisplay ?? 'total',
     };
 
     // Validate config
     if (config.votesPerAttendee < 1 || config.votesPerAttendee > 10) {
       return { status: 400, jsonBody: { error: 'Votes per attendee must be between 1 and 10' } };
-    }
-    if (!['hidden', 'total', 'per-option'].includes(config.liveVoteDisplay)) {
-      return { status: 400, jsonBody: { error: 'Invalid live vote display option' } };
     }
 
     const entity: EventEntity = {
@@ -143,12 +139,6 @@ async function updateEvent(request: HttpRequest, context: InvocationContext): Pr
           return { status: 400, jsonBody: { error: 'Votes per attendee must be between 1 and 10' } };
         }
         currentConfig.votesPerAttendee = body.config.votesPerAttendee;
-      }
-      if (body.config.liveVoteDisplay !== undefined) {
-        if (!['hidden', 'total', 'per-option'].includes(body.config.liveVoteDisplay)) {
-          return { status: 400, jsonBody: { error: 'Invalid live vote display option' } };
-        }
-        currentConfig.liveVoteDisplay = body.config.liveVoteDisplay;
       }
       entity.config = JSON.stringify(currentConfig);
     }
