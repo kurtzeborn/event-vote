@@ -17,13 +17,14 @@ A live event voting app where a **Votekeeper** creates an event, adds voting opt
 6. **Votekeeper** closes voting
 7. **Votekeeper** triggers result reveal — places are unveiled last-to-first with animation
 8. Winner is announced with a celebration effect
+9. **Votekeeper** generates a shareable results page / PDF export with charts
 
 ### Key Concepts
 
 | Term | Description |
 |------|-------------|
 | **Votekeeper** | The authenticated user running the event (likely presenting on a projector) |
-| **Attendee / Voter** | An anonymous audience member voting from their phone |
+| **Attendee / Voter** | An audience member voting from their phone (identified by display name, no login required) |
 | **Event** | A single voting session with a set of options |
 | **Voting Option** | Something attendees can vote for (has title + description) |
 | **Vote Allocation** | The number of votes each attendee gets (default 3, configurable) |
@@ -35,7 +36,7 @@ A live event voting app where a **Votekeeper** creates an event, adds voting opt
 | Requirement | Value |
 |------------|-------|
 | Auth (Votekeeper) | Microsoft Entra ID via SWA built-in auth |
-| Auth (Attendees) | Anonymous — QR code + device fingerprint |
+| Auth (Attendees) | No login — display name + device fingerprint |
 | Max Voting Options | 50 per event |
 | Default Votes per Attendee | 3 (configurable by Votekeeper: 1-10) |
 | Vote Distribution | Attendee can place all votes on one option or spread across many |
@@ -43,6 +44,9 @@ A live event voting app where a **Votekeeper** creates an event, adds voting opt
 | Duplicate Vote Prevention | Device fingerprint + session cookie |
 | Real-time Updates | Polling (5-10 second intervals) |
 | Results Reveal | Sequential, last-to-first (scavenger-hunt style) |
+| Tiebreaker | Unique voters (distinct voterId count, ignoring stacked votes) |
+| Vote Changes | Voters can reset/change votes until voting closes |
+| Results Export | Shareable results page + PDF export with charts |
 | Event Expiration | Events auto-expire after 24 hours |
 
 ---
@@ -67,7 +71,7 @@ A live event voting app where a **Votekeeper** creates an event, adds voting opt
 | **open** | See live vote display (based on config), still add options, close voting | Cast votes, see options |
 | **closed** | Trigger reveal | See "Voting closed" message |
 | **revealing** | Click to reveal each place one at a time | Watch the reveal |
-| **complete** | See final results, share results | See final results |
+| **complete** | See final results, generate shareable report / PDF | See final results, view/download report |
 
 ---
 
@@ -79,8 +83,9 @@ A live event voting app where a **Votekeeper** creates an event, adds voting opt
 1. Sign in with Microsoft
 2. See dashboard (list of past events, "Create Event" button)
 3. Click "Create Event"
-   - Enter event name
+   - Enter event title (prominently displayed on all views — projector, ballot, results)
    - Set votes per attendee (default 3)
+   - Set live vote display mode (hidden / total / per-option)
 4. Enter Setup view (projectable)
    - Large, clean UI suitable for projection
    - Add voting options (title + description)
@@ -98,20 +103,40 @@ A live event voting app where a **Votekeeper** creates an event, adds voting opt
    - Each place revealed one at a time (last → first)
    - Click/tap or auto-advance to reveal next
    - Winner gets celebration animation
+8. Click "Generate Report"
+   - Shareable results page with anonymized vote breakdowns and charts
+   - PDF export option for debriefs
+   - Includes: event title, all options ranked, vote counts, unique voter counts, charts
 ```
 
 ### Attendee (Voter) Flow
 
 ```
 1. Scan QR code or enter URL + event code
-2. See list of voting options (title + description)
-3. Allocate votes
+2. Enter display name (stored in session — not an account, just identification)
+3. See event title prominently + list of voting options (title + description)
+4. Allocate votes
    - Each option has +/- buttons
    - Remaining votes counter shown prominently
+   - "Reset" button to clear all allocations and start over
    - "Submit Votes" button (disabled until at least 1 vote placed)
-4. Submit votes
-5. See confirmation + "Waiting for results..."
-6. Watch results reveal (same reveal view as projector)
+5. Submit votes → see confirmation
+6. Can return and change votes at any time while voting is open
+   - Re-scan QR code or refresh → session restored → see current allocations → edit and resubmit
+7. When voting closes → automatically redirected to waiting page
+8. Watch results reveal (same reveal view as projector)
+9. View/download the results report
+```
+
+### Reconnect Flow (Voter Disconnect Recovery)
+
+```
+1. Voter loses connection or closes browser during voting
+2. Voter re-scans QR code or navigates back to event URL
+3. Session restored from localStorage (voterId + display name)
+4. If votes were previously submitted → shows current allocations, editable
+5. If votes were not yet submitted → shows empty ballot
+6. Voter can continue voting normally
 ```
 
 ---
@@ -195,7 +220,7 @@ flowchart LR
 ```typescript
 interface Event {
   id: string;                    // Short unique ID (also the join code, e.g. "VOTE-A3X9")
-  name: string;                  // Event title (e.g., "Best Team Costume")
+  name: string;                  // Event title — displayed prominently on all views (e.g., "Best Team Costume")
   createdBy: string;             // Votekeeper's user ID
   createdAt: string;             // ISO date
   status: 'setup' | 'open' | 'closed' | 'revealing' | 'complete';
@@ -229,8 +254,10 @@ interface Vote {
   eventId: string;               // Parent event
   optionId: string;              // Which option was voted for
   voterId: string;               // Device fingerprint / session ID
+  voterName: string;             // Display name entered by voter
   count: number;                 // How many votes placed on this option (1+)
   submittedAt: string;
+  updatedAt?: string;            // Last time votes were changed
 }
 ```
 
@@ -239,7 +266,9 @@ interface Vote {
 interface VoterSession {
   eventId: string;
   voterId: string;               // Generated fingerprint + random component
+  voterName: string;             // Display name entered on first visit
   votesSubmitted: boolean;       // Whether votes have been cast
+  allocations?: Record<string, number>;  // Current vote allocations (optionId → count)
   submittedAt?: string;
 }
 ```
@@ -247,11 +276,14 @@ interface VoterSession {
 **Session Behavior:**
 | Scenario | Behavior |
 |----------|----------|
-| Page refresh before voting | ✅ Session restored, can still vote |
-| Page refresh after voting | Shows confirmation + waiting screen |
+| Page refresh before voting | ✅ Session + name restored, can still vote |
+| Page refresh after voting | ✅ Session restored, can edit and resubmit votes (while open) |
+| Re-scan QR code | ✅ Session restored, see current allocations |
+| Disconnect + reconnect | ✅ Submitted votes restored from server, editable until closed |
 | Different device/browser | Can vote again (device fingerprint differs) — acceptable trade-off |
 | Event expired/deleted | Clear session, show "event not found" |
 | Voting not yet open | Shows options list with "Voting hasn't started yet" |
+| Voting closed while editing | Redirect to waiting page, last-submitted votes count |
 
 ### Votekeeper (Allowlist)
 ```typescript
@@ -314,9 +346,12 @@ PATCH  /api/events/:id/options/reorder Reorder options
 ### Public / Attendee Endpoints
 ```
 GET    /api/events/:id/public          Get event info + options (no auth required)
-POST   /api/events/:id/vote            Submit votes (no auth required)
+POST   /api/events/:id/vote            Submit or update votes (no auth required, idempotent by voterId)
+GET    /api/events/:id/vote/:voterId   Get current vote allocations for a voter (reconnect support)
 GET    /api/events/:id/results         Get results (available after reveal starts)
 GET    /api/events/:id/results/status  Poll for reveal progress
+GET    /api/events/:id/report          Get shareable results report data (available after complete)
+GET    /api/events/:id/report/pdf      Generate PDF export of results (available after complete)
 ```
 
 ### Votekeeper Management (Votekeeper Only)
@@ -350,17 +385,19 @@ GET    /api/me                         Get current user's auth + votekeeper stat
 App
 ├── / (Landing page — join an event or sign in)
 ├── /join/:eventId (Attendee ballot view)
+│   ├── Name Entry (enter display name)
 │   ├── Waiting (voting not open yet)
-│   ├── Voting (allocate + submit votes)
-│   ├── Submitted (waiting for results)
-│   └── Results (reveal animation)
+│   ├── Voting (allocate + submit + reset + change votes)
+│   ├── Closed / Waiting (voting closed, waiting for reveal)
+│   └── Results (reveal animation + report download)
 ├── /dashboard (Votekeeper — list events)
 ├── /event/:eventId (Votekeeper — main event management view)
 │   ├── Setup (add/edit options, projectable)
 │   ├── Voting Open (live status, QR code prominent)
 │   ├── Closed (ready to reveal)
 │   ├── Revealing (click-to-reveal, last-to-first)
-│   └── Complete (final results)
+│   └── Complete (final results + generate report)
+├── /results/:eventId (Public shareable results page — no auth)
 └── /settings (Votekeeper management)
 ```
 
@@ -378,7 +415,9 @@ The voter view (`/join/:eventId`) is mobile-first:
 - **Simple layout** — option list with vote allocation controls
 - **Remaining votes counter** — sticky at top or bottom
 - **Single scroll** — all options visible in one scrollable list
-- **No login** — land directly on the ballot
+- **No login** — enter display name and land on the ballot
+- **Vote management** — reset button to clear allocations; change votes after submitting (while open)
+- **Reconnect-friendly** — session restores on re-scan or page refresh
 
 ---
 
@@ -398,7 +437,7 @@ Since attendees don't log in, we use a multi-layered approach:
 
 ### Server-Side Validation
 - Total votes per voter ≤ `votesPerAttendee`
-- Reject duplicate `voterId` submissions
+- Resubmission from same `voterId` replaces previous votes (supports vote changes)
 - Rate limit by IP address
 
 ### Accepted Trade-offs
@@ -416,11 +455,13 @@ The reveal follows the same pattern as the scavenger-hunt project:
 1. Votekeeper clicks "Reveal Results"
 2. Event status changes to `revealing`
 3. Results are sorted by vote count (ascending — worst first)
-4. Each option is revealed one at a time with animation
-5. New items appear at the top of the list (pushing others down)
-6. Votekeeper clicks/taps to advance to the next reveal
-7. Top 3 get medal icons (gold, silver, bronze)
-8. After all revealed, winner gets a celebration banner
+4. **Tiebreaker**: if two options have the same vote count, the one with more **unique voters** ranks higher (e.g., 6 votes from 4 unique people beats 6 votes from 2 people who stacked)
+5. Each option is revealed one at a time with animation
+6. New items appear at the top of the list (pushing others down)
+7. Votekeeper clicks/taps to advance to the next reveal
+8. Top 3 get medal icons (gold, silver, bronze)
+9. After all revealed, winner gets a celebration banner
+10. "Generate Report" button appears for Votekeeper
 
 ### Reveal Animation (CSS)
 - Items slide in from below with a fade
@@ -437,6 +478,19 @@ interface RevealState {
 ```
 
 The reveal progress is tracked server-side so attendees watching on their phones see the same progression as the projector.
+
+### Results Report
+After reveal is complete, the Votekeeper can generate a shareable report:
+- **Shareable URL** — public link to a read-only results page (no auth required)
+- **PDF Export** — downloadable PDF with charts and vote breakdowns
+- **Report Contents**:
+  - Event title and date
+  - All options ranked by final position
+  - Vote counts and unique voter counts per option
+  - Bar chart or horizontal bar visualization
+  - Anonymized breakdown (no voter names in report)
+  - Total voters and total votes cast
+- **Chart Library** — generated client-side (e.g., Chart.js or Recharts) for the web view; server-side rendering for PDF
 
 ---
 
@@ -460,8 +514,8 @@ Since we're using polling instead of real-time WebSockets:
 | Votekeeper (open) | Yes | 5s | Vote counts per option |
 | Votekeeper (revealing) | No | — | Votekeeper drives the reveal |
 | Attendee (waiting) | Yes | 5s | Event status (waiting for "open") |
-| Attendee (voting) | No | — | Static until submit |
-| Attendee (submitted) | Yes | 5s | Event status (waiting for "revealing") |
+| Attendee (voting) | Yes | 10s | Event status (detect if voting was closed → redirect to waiting) |
+| Attendee (submitted) | Yes | 5s | Event status (waiting for "revealing" or "closed" → redirect) |
 | Attendee (results) | Yes | 3s | Reveal progress (how many revealed) |
 
 ---
@@ -489,13 +543,14 @@ event-vote/
 │       │   ├── events.ts        # Event CRUD + lifecycle
 │       │   ├── options.ts       # Voting option management
 │       │   ├── vote.ts          # Vote submission
-│       │   ├── results.ts       # Results + reveal
+│       │   ├── results.ts       # Results + reveal + report generation
 │       │   ├── votekeepers.ts   # Votekeeper management
 │       │   └── me.ts            # Auth status
 │       ├── services/
 │       │   ├── eventService.ts
 │       │   ├── voteService.ts
-│       │   └── tableStoargeService.ts
+│       │   ├── tableStorageService.ts
+│       │   └── reportService.ts # PDF generation + report data
 │       └── utils/
 │           ├── auth.ts
 │           └── validation.ts
@@ -524,13 +579,17 @@ event-vote/
 │       │   │   └── ResultsView.tsx
 │       │   └── voter/           # Attendee views
 │       │       ├── BallotView.tsx
+│       │       ├── NameEntryView.tsx
 │       │       ├── WaitingView.tsx
 │       │       └── VoterResultsView.tsx
 │       ├── hooks/
 │       ├── services/
 │       └── types/
 ├── tests/
-│   └── e2e/
+│   ├── unit/                    # Unit tests (Vitest)
+│   │   ├── functions/           # API function tests
+│   │   └── web/                 # Component + hook tests
+│   └── smoke/                   # Smoke tests (Playwright)
 ├── staticwebapp.config.json
 ├── README.md
 └── .gitignore
@@ -542,43 +601,68 @@ event-vote/
 
 ### Phase 1: Foundation
 - [ ] Project scaffolding (React + Vite + Tailwind + Azure Functions)
-- [ ] Infrastructure (Bicep for SWA + Storage + Functions)
+- [ ] Infrastructure (Bicep for SWA Free + Storage + Functions in `rg-event-vote`)
 - [ ] Auth setup (Entra ID + Votekeeper allowlist)
-- [ ] Basic event CRUD API
+- [ ] Basic event CRUD API (with prominent event title)
 - [ ] Votekeeper dashboard + create event flow
 - [ ] Local dev setup (`start-dev.ps1` / `start-dev.sh`)
+- [ ] Unit test setup (Vitest for functions + components)
 
 ### Phase 2: Core Voting
 - [ ] Voting option management (add/edit/remove/reorder)
-- [ ] Projector-friendly setup view
+- [ ] Projector-friendly setup view (prominent event title)
 - [ ] QR code generation
-- [ ] Attendee ballot view (mobile-first)
-- [ ] Vote submission API with anti-fraud
+- [ ] Voter name entry
+- [ ] Attendee ballot view (mobile-first, with reset + change votes)
+- [ ] Vote submission API with anti-fraud (idempotent upsert by voterId)
+- [ ] Voter reconnect / session restore
 - [ ] Event lifecycle (open → close → reveal → complete)
+- [ ] Unit tests for vote service + anti-fraud logic
 
 ### Phase 3: Results Reveal
-- [ ] Vote tallying API
+- [ ] Vote tallying API (with unique voter tiebreaker)
 - [ ] Reveal state management (server-side tracking)
 - [ ] Last-to-first reveal animation (scavenger-hunt style)
 - [ ] Medal icons for top 3
 - [ ] Winner celebration banner
 - [ ] Attendee results view (synced with reveal)
+- [ ] Shareable results page (public URL, no auth)
+- [ ] PDF export with charts (anonymized vote breakdowns)
 
 ### Phase 4: Polish & Deploy
 - [ ] Polling for live updates
-- [ ] Error handling + edge cases
+- [ ] Error handling + edge cases (disconnect recovery, voting closed mid-edit)
 - [ ] Mobile responsiveness fine-tuning
 - [ ] Event expiration / cleanup
-- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Smoke tests (Playwright — create event, vote, reveal flow)
+- [ ] CI/CD pipeline (GitHub Actions — build + unit tests + smoke tests)
 - [ ] Deployment to Azure
 - [ ] README + docs
 
 ---
 
-## 17. Open Questions
+## 17. Testing Strategy
+
+### Unit Tests (Vitest)
+- **API Functions**: Test each endpoint's logic — validation, auth checks, vote tallying, tiebreaker sorting
+- **Services**: Test vote service (upsert, allocation limits, unique voter count), event lifecycle transitions
+- **Components**: Test key UI components — ballot view, vote allocation controls, results reveal
+- **Hooks**: Test custom hooks — polling, session management, vote state
+
+### Smoke Tests (Playwright)
+- **Full flow**: Create event → add options → open voting → vote from mobile viewport → close → reveal → report
+- **Reconnect**: Vote, close browser, re-open → verify session restores
+- **Edge cases**: Vote during close transition, multiple voters
+
+### CI/CD
+- Unit tests run on every push/PR
+- Smoke tests run on deploy to staging
+
+---
+
+## 18. Open Questions
 
 - [ ] Should the Votekeeper be able to edit voting options after voting has opened?
-- [ ] Should attendees see vote counts while voting is open, or should it be blind?
-- [ ] Should there be a "tie-breaker" mechanism for the reveal?
 - [ ] Do we want to support multiple voting rounds in a single event?
 - [ ] Should the event code be customizable (e.g., "HACKATHON-2026") or always auto-generated?
+- [ ] PDF generation: server-side (e.g., Puppeteer/pdf-lib in Functions) or client-side (html2canvas + jsPDF)?
