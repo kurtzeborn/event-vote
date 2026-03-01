@@ -68,6 +68,16 @@ export default function ManageEventPage() {
   const voterUrl = `${window.location.origin}/join/${event.id}`;
   const resultsUrl = `${window.location.origin}/results/${event.id}`;
 
+  // Lifecycle mutations
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event', event.id] });
+  const openMutation = useMutation({ mutationFn: () => api.openVoting(event.id), onSuccess: invalidate });
+  const closeMutation = useMutation({ mutationFn: () => api.closeVoting(event.id), onSuccess: invalidate });
+  const revealMutation = useMutation({ mutationFn: () => api.reveal(event.id), onSuccess: invalidate });
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteEvent(event.id),
+    onSuccess: () => navigate('/dashboard'),
+  });
+
   // Show projector-friendly reveal view for revealing/complete statuses
   if (event.status === 'revealing' || event.status === 'complete') {
     return (
@@ -92,17 +102,58 @@ export default function ManageEventPage() {
             </Link>
             <div>
               <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
-              <span className="text-sm font-mono text-gray-400">Code: {event.id}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-mono text-gray-400">Code: {event.id}</span>
+                <button
+                  onClick={() => setShowQR(true)}
+                  className="p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded transition-colors"
+                  title="Show QR Code"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="2" width="8" height="8" rx="1" /><rect x="2" y="14" width="8" height="8" rx="1" /><rect x="14" y="14" width="4" height="4" /><line x1="22" y1="14" x2="22" y2="14.01" /><line x1="22" y1="22" x2="22" y2="22.01" /><line x1="18" y1="22" x2="18" y2="22.01" /><line x1="22" y1="18" x2="22" y2="18.01" /></svg>
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowQR(true)}
-              className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors"
-              title="Show QR Code"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="2" width="8" height="8" rx="1" /><rect x="2" y="14" width="8" height="8" rx="1" /><rect x="14" y="14" width="4" height="4" /><line x1="22" y1="14" x2="22" y2="14.01" /><line x1="22" y1="22" x2="22" y2="22.01" /><line x1="18" y1="22" x2="18" y2="22.01" /><line x1="22" y1="18" x2="22" y2="18.01" /></svg>
-            </button>
+            {event.status === 'setup' && (
+              <>
+                <button
+                  onClick={() => openMutation.mutate()}
+                  disabled={openMutation.isPending || (event.options?.length ?? 0) === 0}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-sm transition-colors"
+                >
+                  {openMutation.isPending ? 'Opening...' : '▶ Open Voting'}
+                </button>
+                <button
+                  onClick={() => { if (confirm('Delete this event?')) deleteMutation.mutate(); }}
+                  className="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 font-medium text-sm transition-colors"
+                >
+                  Delete
+                </button>
+              </>
+            )}
+            {event.status === 'open' && (
+              <button
+                onClick={() => {
+                  if (confirm('Close voting? Voters will no longer be able to submit or change votes.')) {
+                    closeMutation.mutate();
+                  }
+                }}
+                disabled={closeMutation.isPending}
+                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 disabled:opacity-50 font-medium text-sm transition-colors"
+              >
+                {closeMutation.isPending ? 'Closing...' : '⏸ Close Voting'}
+              </button>
+            )}
+            {event.status === 'closed' && (
+              <button
+                onClick={() => revealMutation.mutate()}
+                disabled={revealMutation.isPending}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 font-medium text-sm transition-colors"
+              >
+                {revealMutation.isPending ? 'Revealing...' : '🎭 Reveal Results'}
+              </button>
+            )}
             <StatusBadge status={event.status} />
           </div>
         </div>
@@ -157,9 +208,6 @@ export default function ManageEventPage() {
 
         {/* Options */}
         <OptionsSection event={event} queryClient={queryClient} />
-
-        {/* Lifecycle Actions */}
-        <LifecycleActions event={event} queryClient={queryClient} navigate={navigate} />
       </main>
     </div>
   );
