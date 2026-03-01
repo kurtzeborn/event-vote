@@ -14,6 +14,7 @@ export default function ManageEventPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
+  const [showPerOption, setShowPerOption] = useState(false);
 
   const {
     data: event,
@@ -188,7 +189,15 @@ export default function ManageEventPage() {
         {/* Live Stats */}
         {voteCounts.data && (
           <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Live Stats</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">Live Stats</h2>
+              <button
+                onClick={() => setShowPerOption((v) => !v)}
+                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+              >
+                {showPerOption ? 'Hide' : 'Show'} Per-Option
+              </button>
+            </div>
             <div className="flex gap-8">
               <div>
                 <div className="text-3xl font-bold text-indigo-600">{voteCounts.data.totalVoters}</div>
@@ -199,6 +208,16 @@ export default function ManageEventPage() {
                 <div className="text-sm text-gray-500">Total Votes</div>
               </div>
             </div>
+            {showPerOption && voteCounts.data.perOption && event.options && (
+              <div className="mt-4 border-t border-gray-100 pt-4 space-y-2">
+                {event.options.map((opt) => (
+                  <div key={opt.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">{opt.title}</span>
+                    <span className="font-semibold text-indigo-600">{voteCounts.data!.perOption[opt.id] ?? 0} votes</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
