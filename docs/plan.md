@@ -1,0 +1,584 @@
+# Event Vote - Development Plan
+
+**Production URL**: https://evote.k61.dev
+
+---
+
+## 1. Overview
+
+A live event voting app where a **Votekeeper** creates an event, adds voting options throughout a session, and opens voting to the audience. Attendees vote from their phones — no login required. Results are revealed dramatically from last place to first.
+
+### Core Flow
+1. **Votekeeper** signs in, creates an event
+2. **Votekeeper** adds voting options (title + description) throughout the event — this screen is projected
+3. **Votekeeper** clicks "Open Voting" to allow audience participation
+4. **Attendees** scan a QR code from their phone to access the ballot
+5. **Attendees** distribute their votes (default 3) across options — can stack on one or spread out
+6. **Votekeeper** closes voting
+7. **Votekeeper** triggers result reveal — places are unveiled last-to-first with animation
+8. Winner is announced with a celebration effect
+
+### Key Concepts
+
+| Term | Description |
+|------|-------------|
+| **Votekeeper** | The authenticated user running the event (likely presenting on a projector) |
+| **Attendee / Voter** | An anonymous audience member voting from their phone |
+| **Event** | A single voting session with a set of options |
+| **Voting Option** | Something attendees can vote for (has title + description) |
+| **Vote Allocation** | The number of votes each attendee gets (default 3, configurable) |
+
+---
+
+## 2. Requirements Summary
+
+| Requirement | Value |
+|------------|-------|
+| Auth (Votekeeper) | Microsoft Entra ID via SWA built-in auth |
+| Auth (Attendees) | Anonymous — QR code + device fingerprint |
+| Max Voting Options | 50 per event |
+| Default Votes per Attendee | 3 (configurable by Votekeeper: 1-10) |
+| Vote Distribution | Attendee can place all votes on one option or spread across many |
+| Live Vote Display | Configurable: hidden, total only (default), or per-option |
+| Duplicate Vote Prevention | Device fingerprint + session cookie |
+| Real-time Updates | Polling (5-10 second intervals) |
+| Results Reveal | Sequential, last-to-first (scavenger-hunt style) |
+| Event Expiration | Events auto-expire after 24 hours |
+
+---
+
+## 3. Event Lifecycle
+
+```
+┌──────────┐     ┌───────────┐     ┌────────┐     ┌──────────┐     ┌───────────┐     ┌──────────┐
+│ Created  │────▶│  Setup    │────▶│  Open  │────▶│  Closed  │────▶│ Revealing │────▶│ Complete │
+└──────────┘     └───────────┘     └────────┘     └──────────┘     └───────────┘     └──────────┘
+      │               │                │                │                │                │
+  Event created   Add/edit         Voting is        Voting is        Results shown     All results
+  by Votekeeper   voting options   open to          closed           last-to-first     revealed
+                  (projected)      attendees
+```
+
+### Status Definitions
+
+| Status | Votekeeper Can... | Attendees Can... |
+|--------|-------------------|------------------|
+| **setup** | Add/edit/remove voting options, configure vote allocation | See event page (no voting yet) |
+| **open** | See live vote display (based on config), still add options, close voting | Cast votes, see options |
+| **closed** | Trigger reveal | See "Voting closed" message |
+| **revealing** | Click to reveal each place one at a time | Watch the reveal |
+| **complete** | See final results, share results | See final results |
+
+---
+
+## 4. User Flows
+
+### Votekeeper Flow
+
+```
+1. Sign in with Microsoft
+2. See dashboard (list of past events, "Create Event" button)
+3. Click "Create Event"
+   - Enter event name
+   - Set votes per attendee (default 3)
+4. Enter Setup view (projectable)
+   - Large, clean UI suitable for projection
+   - Add voting options (title + description)
+   - QR code visible in corner/header (links to voter page)
+   - Event join code displayed for manual entry
+5. Click "Open Voting"
+   - QR code becomes prominent
+   - Live vote display based on config:
+     - **Hidden**: No counts shown (blind vote)
+     - **Total only** (default): Shows "47 votes cast" — builds excitement without influencing
+     - **Per-option**: Shows count next to each option — fun but can create bandwagon effect
+   - Can still add options while voting is open
+6. Click "Close Voting"
+7. Click "Reveal Results"
+   - Each place revealed one at a time (last → first)
+   - Click/tap or auto-advance to reveal next
+   - Winner gets celebration animation
+```
+
+### Attendee (Voter) Flow
+
+```
+1. Scan QR code or enter URL + event code
+2. See list of voting options (title + description)
+3. Allocate votes
+   - Each option has +/- buttons
+   - Remaining votes counter shown prominently
+   - "Submit Votes" button (disabled until at least 1 vote placed)
+4. Submit votes
+5. See confirmation + "Waiting for results..."
+6. Watch results reveal (same reveal view as projector)
+```
+
+---
+
+## 5. Architecture
+
+```mermaid
+flowchart LR
+    subgraph Cloudflare
+        DNS["DNS<br/>evote.k61.dev"]
+    end
+    
+    subgraph Azure["Azure &mdash; Resource Group: rg-event-vote"]
+        subgraph SWA["Static Web Apps (Free)"]
+            SPA["React SPA<br/>evote.k61.dev"]
+        end
+        
+        subgraph Functions["Azure Functions (Consumption)"]
+            API["API Endpoints<br/>• Event management<br/>• Vote submission<br/>• Results"]
+        end
+        
+        subgraph Storage["Storage Account"]
+            Tables["Table Storage<br/>• Events<br/>• Voting Options<br/>• Votes<br/>• Votekeepers"]
+        end
+        
+        EntraID["Entra ID<br/>(Votekeeper Auth)"]
+    end
+    
+    DNS --> SWA
+    SPA -->|"CORS<br/>direct API calls"| API
+    SWA -.->|"Auth"| EntraID
+    API --> Tables
+```
+
+**Architecture Notes:**
+- **SWA Free Tier** — Hosts the React SPA at no cost
+- **Separate Resource Group** — `rg-event-vote` keeps all resources isolated from other projects
+- **CORS** — Functions app configured to accept requests from `https://evote.k61.dev`
+- **Auth** — SWA built-in auth handles Entra ID sign-in; auth token passed to Functions via fetch headers
+- **Cloudflare DNS** — CNAME pointing to SWA hostname (proxy disabled for SSL compatibility)
+- **No Blob Storage** — Text-only data, no media uploads needed
+- **No Linked Backend** — SPA calls Functions app directly (CORS), no `/api/*` proxy
+
+*Note: SignalR omitted — using polling for real-time updates instead.*
+
+---
+
+## 6. Azure Cost Estimate
+
+### Resource Breakdown
+
+| Resource | Purpose | Pricing Model | Estimated Monthly Cost |
+|----------|---------|---------------|------------------------|
+| **Azure Static Web Apps (Free)** | Host React SPA | Free tier | $0.00 |
+| **Azure Functions (Consumption)** | API endpoints | Pay-per-execution | < $0.01 |
+| **Azure Storage Account** | Table Storage for all data | $0.00036/10K transactions + $0.045/GB | < $0.01 |
+| **Entra ID** | Votekeeper authentication | Free (included with Azure) | $0.00 |
+| **Custom Domain** | Subdomain of existing domain | Already owned | $0.00 |
+
+### Storage Calculations
+
+**Table Storage (per event):**
+- 1 Event record: ~500 bytes
+- 50 Voting Options × ~500 bytes: ~25 KB
+- 500 Voters × ~200 bytes per vote record: ~100 KB
+- **Total per event: ~125 KB** → thousands of events = still < 1 MB
+
+### Cost Summary
+
+| | Monthly | Annual |
+|-|---------|--------|
+| **Total** | ~$0.00 | ~$0.00 |
+
+**Bottom line: Effectively free.** SWA Free tier + Consumption Functions + Table Storage = negligible cost. All resources live in a dedicated `rg-event-vote` resource group, fully isolated from other projects.
+
+---
+
+## 7. Data Model
+
+### Event
+```typescript
+interface Event {
+  id: string;                    // Short unique ID (also the join code, e.g. "VOTE-A3X9")
+  name: string;                  // Event title (e.g., "Best Team Costume")
+  createdBy: string;             // Votekeeper's user ID
+  createdAt: string;             // ISO date
+  status: 'setup' | 'open' | 'closed' | 'revealing' | 'complete';
+  config: {
+    votesPerAttendee: number;    // Default 3, configurable 1-10
+    liveVoteDisplay: 'hidden' | 'total' | 'per-option';  // Default 'total'
+  };
+  openedAt?: string;             // When voting was opened
+  closedAt?: string;             // When voting was closed
+  expiresAt: string;             // Auto-expire after 24 hours
+}
+```
+
+### Voting Option
+```typescript
+interface VotingOption {
+  id: string;                    // Unique option ID
+  eventId: string;               // Parent event
+  title: string;                 // Max 100 chars
+  description: string;           // Max 500 chars
+  order: number;                 // Display order
+  createdAt: string;
+  voteCount?: number;            // Populated after voting closes (or live if showLiveCount)
+}
+```
+
+### Vote
+```typescript
+interface Vote {
+  id: string;                    // Unique vote record ID
+  eventId: string;               // Parent event
+  optionId: string;              // Which option was voted for
+  voterId: string;               // Device fingerprint / session ID
+  count: number;                 // How many votes placed on this option (1+)
+  submittedAt: string;
+}
+```
+
+### Voter Session (localStorage)
+```typescript
+interface VoterSession {
+  eventId: string;
+  voterId: string;               // Generated fingerprint + random component
+  votesSubmitted: boolean;       // Whether votes have been cast
+  submittedAt?: string;
+}
+```
+
+**Session Behavior:**
+| Scenario | Behavior |
+|----------|----------|
+| Page refresh before voting | ✅ Session restored, can still vote |
+| Page refresh after voting | Shows confirmation + waiting screen |
+| Different device/browser | Can vote again (device fingerprint differs) — acceptable trade-off |
+| Event expired/deleted | Clear session, show "event not found" |
+| Voting not yet open | Shows options list with "Voting hasn't started yet" |
+
+### Votekeeper (Allowlist)
+```typescript
+interface Votekeeper {
+  email: string;                 // Primary key (lowercase)
+  displayName: string;           // From Microsoft profile
+  addedBy: string;               // Email of who invited them
+  addedAt: string;
+}
+```
+
+---
+
+## 8. Table Storage Schema
+
+### PartitionKey / RowKey Design
+
+| Table | PartitionKey | RowKey | Description |
+|-------|-------------|--------|-------------|
+| **Events** | `event` | `{eventId}` | Event record |
+| **VotingOptions** | `{eventId}` | `option_{optionId}` | Options for an event |
+| **Votes** | `{eventId}` | `vote_{voterId}_{optionId}` | Individual vote records |
+| **Votekeepers** | `votekeeper` | `{email}` | Authorized votekeepers |
+
+**Query Patterns:**
+- Get event: Point query on Events table
+- Get all options for event: Partition scan on VotingOptions
+- Get all votes for event: Partition scan on Votes (for tallying)
+- Check if voter already submitted: Partition scan with voterId prefix filter
+
+---
+
+## 9. API Endpoints
+
+### Event Management (Votekeeper Only)
+```
+POST   /api/events                     Create new event
+GET    /api/events                     List my events
+GET    /api/events/:id                 Get event details (Votekeeper view)
+PATCH  /api/events/:id                 Update event config
+DELETE /api/events/:id                 Delete event and all associated data
+```
+
+### Event Lifecycle (Votekeeper Only)
+```
+POST   /api/events/:id/open            Open voting
+POST   /api/events/:id/close           Close voting
+POST   /api/events/:id/reveal          Start/advance results reveal
+POST   /api/events/:id/complete        Finalize event (mark complete)
+```
+
+### Voting Options (Votekeeper Only)
+```
+POST   /api/events/:id/options         Add voting option
+PUT    /api/events/:id/options/:optId  Update voting option
+DELETE /api/events/:id/options/:optId  Remove voting option (only during setup)
+PATCH  /api/events/:id/options/reorder Reorder options
+```
+
+### Public / Attendee Endpoints
+```
+GET    /api/events/:id/public          Get event info + options (no auth required)
+POST   /api/events/:id/vote            Submit votes (no auth required)
+GET    /api/events/:id/results         Get results (available after reveal starts)
+GET    /api/events/:id/results/status  Poll for reveal progress
+```
+
+### Votekeeper Management (Votekeeper Only)
+```
+GET    /api/votekeepers                List all votekeepers
+POST   /api/votekeepers                Invite new votekeeper (by email)
+DELETE /api/votekeepers/:email         Remove votekeeper
+GET    /api/me                         Get current user's auth + votekeeper status
+```
+
+### Security
+- **Rate Limiting**: Vote submission — 5 requests per IP per minute to prevent abuse
+- **Device Fingerprint**: Combines browser characteristics + random session ID
+- **Vote Validation**: Server-side check that total votes ≤ configured allocation
+- **Event Codes**: Short, human-readable codes (e.g., "VOTE-A3X9")
+
+---
+
+## 10. Frontend Views
+
+### Tech Stack
+- **React** with TypeScript
+- **Vite** for build tooling
+- **Tailwind CSS** for styling
+- **React Router** for navigation
+- **TanStack Query** for data fetching + polling
+
+### View Hierarchy
+
+```
+App
+├── / (Landing page — join an event or sign in)
+├── /join/:eventId (Attendee ballot view)
+│   ├── Waiting (voting not open yet)
+│   ├── Voting (allocate + submit votes)
+│   ├── Submitted (waiting for results)
+│   └── Results (reveal animation)
+├── /dashboard (Votekeeper — list events)
+├── /event/:eventId (Votekeeper — main event management view)
+│   ├── Setup (add/edit options, projectable)
+│   ├── Voting Open (live status, QR code prominent)
+│   ├── Closed (ready to reveal)
+│   ├── Revealing (click-to-reveal, last-to-first)
+│   └── Complete (final results)
+└── /settings (Votekeeper management)
+```
+
+### Projector-Friendly Design
+The Votekeeper's event view (`/event/:eventId`) is designed to be projected:
+- **Large fonts** — readable from the back of the room
+- **High contrast** — dark background with bright text
+- **QR code** — always visible, sized for scanning from a distance
+- **Minimal chrome** — no navigation bars or clutter during the event
+- **Responsive** — works on both projector and Votekeeper's laptop screen
+
+### Attendee Mobile Design
+The voter view (`/join/:eventId`) is mobile-first:
+- **Touch-friendly** — large tap targets for +/- vote buttons
+- **Simple layout** — option list with vote allocation controls
+- **Remaining votes counter** — sticky at top or bottom
+- **Single scroll** — all options visible in one scrollable list
+- **No login** — land directly on the ballot
+
+---
+
+## 11. Anti-Fraud / Duplicate Vote Prevention
+
+Since attendees don't log in, we use a multi-layered approach:
+
+### Device Fingerprint
+- Combine browser characteristics (user agent, screen size, language, timezone, etc.)
+- Hash into a stable fingerprint
+- Not perfectly unique, but a reasonable deterrent
+
+### Session Cookie
+- Set an HttpOnly cookie on vote submission
+- Server checks for existing cookie on `/api/events/:id/vote`
+- Prevents simple re-submissions from same browser
+
+### Server-Side Validation
+- Total votes per voter ≤ `votesPerAttendee`
+- Reject duplicate `voterId` submissions
+- Rate limit by IP address
+
+### Accepted Trade-offs
+- A determined user could vote from multiple devices — this is acceptable for a fun event context
+- Incognito mode could bypass cookie check — fingerprint still provides some protection
+- This is **not** a secure election system — it's a fun audience participation tool
+
+---
+
+## 12. Results Reveal (Scavenger Hunt Style)
+
+The reveal follows the same pattern as the scavenger-hunt project:
+
+### Reveal Mechanics
+1. Votekeeper clicks "Reveal Results"
+2. Event status changes to `revealing`
+3. Results are sorted by vote count (ascending — worst first)
+4. Each option is revealed one at a time with animation
+5. New items appear at the top of the list (pushing others down)
+6. Votekeeper clicks/taps to advance to the next reveal
+7. Top 3 get medal icons (gold, silver, bronze)
+8. After all revealed, winner gets a celebration banner
+
+### Reveal Animation (CSS)
+- Items slide in from below with a fade
+- Brief pause between reveals for drama
+- Winner reveal has extra flourish (glow, larger card, confetti optional)
+
+### Reveal State
+```typescript
+interface RevealState {
+  revealedCount: number;         // How many have been shown so far
+  totalOptions: number;          // Total options to reveal
+  isComplete: boolean;           // All options revealed
+}
+```
+
+The reveal progress is tracked server-side so attendees watching on their phones see the same progression as the projector.
+
+---
+
+## 13. QR Code
+
+- Generated client-side using a QR code library (e.g., `qrcode.react`)
+- Encodes the attendee URL: `https://evote.k61.dev/join/{eventId}`
+- Displayed prominently on the Votekeeper's projected view
+- Sized appropriately for scanning from a distance (at least 200×200px on screen)
+- Event join code displayed below QR for manual entry fallback
+
+---
+
+## 14. Polling Strategy
+
+Since we're using polling instead of real-time WebSockets:
+
+| View | Polls | Interval | What's Polled |
+|------|-------|----------|---------------|
+| Votekeeper (setup) | No | — | Manual refresh only |
+| Votekeeper (open) | Yes | 5s | Vote counts per option |
+| Votekeeper (revealing) | No | — | Votekeeper drives the reveal |
+| Attendee (waiting) | Yes | 5s | Event status (waiting for "open") |
+| Attendee (voting) | No | — | Static until submit |
+| Attendee (submitted) | Yes | 5s | Event status (waiting for "revealing") |
+| Attendee (results) | Yes | 3s | Reveal progress (how many revealed) |
+
+---
+
+## 15. Project Structure
+
+```
+event-vote/
+├── .github/
+│   ├── copilot-instructions.md
+│   └── workflows/
+│       └── deploy.yml
+├── docs/
+│   ├── plan.md                  # This file
+│   ├── DEPLOYMENT.md
+│   └── DEVELOPMENT.md
+├── functions/
+│   ├── host.json
+│   ├── local.settings.json
+│   ├── local.settings.json.template
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── src/
+│       ├── functions/
+│       │   ├── events.ts        # Event CRUD + lifecycle
+│       │   ├── options.ts       # Voting option management
+│       │   ├── vote.ts          # Vote submission
+│       │   ├── results.ts       # Results + reveal
+│       │   ├── votekeepers.ts   # Votekeeper management
+│       │   └── me.ts            # Auth status
+│       ├── services/
+│       │   ├── eventService.ts
+│       │   ├── voteService.ts
+│       │   └── tableStoargeService.ts
+│       └── utils/
+│           ├── auth.ts
+│           └── validation.ts
+├── infra/
+│   ├── main.bicep               # SWA (Free) + Functions + Storage Account
+│   ├── main.bicepparam          # Resource group: rg-event-vote
+│   ├── deploy.ps1
+│   └── deploy.sh
+├── web/
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── App.tsx
+│       ├── main.tsx
+│       ├── index.css
+│       ├── components/
+│       │   ├── common/          # Shared components
+│       │   ├── landing/         # Landing page
+│       │   ├── dashboard/       # Votekeeper dashboard
+│       │   ├── event/           # Votekeeper event management
+│       │   │   ├── SetupView.tsx
+│       │   │   ├── VotingOpenView.tsx
+│       │   │   ├── RevealView.tsx
+│       │   │   └── ResultsView.tsx
+│       │   └── voter/           # Attendee views
+│       │       ├── BallotView.tsx
+│       │       ├── WaitingView.tsx
+│       │       └── VoterResultsView.tsx
+│       ├── hooks/
+│       ├── services/
+│       └── types/
+├── tests/
+│   └── e2e/
+├── staticwebapp.config.json
+├── README.md
+└── .gitignore
+```
+
+---
+
+## 16. Implementation Phases
+
+### Phase 1: Foundation
+- [ ] Project scaffolding (React + Vite + Tailwind + Azure Functions)
+- [ ] Infrastructure (Bicep for SWA + Storage + Functions)
+- [ ] Auth setup (Entra ID + Votekeeper allowlist)
+- [ ] Basic event CRUD API
+- [ ] Votekeeper dashboard + create event flow
+- [ ] Local dev setup (`start-dev.ps1` / `start-dev.sh`)
+
+### Phase 2: Core Voting
+- [ ] Voting option management (add/edit/remove/reorder)
+- [ ] Projector-friendly setup view
+- [ ] QR code generation
+- [ ] Attendee ballot view (mobile-first)
+- [ ] Vote submission API with anti-fraud
+- [ ] Event lifecycle (open → close → reveal → complete)
+
+### Phase 3: Results Reveal
+- [ ] Vote tallying API
+- [ ] Reveal state management (server-side tracking)
+- [ ] Last-to-first reveal animation (scavenger-hunt style)
+- [ ] Medal icons for top 3
+- [ ] Winner celebration banner
+- [ ] Attendee results view (synced with reveal)
+
+### Phase 4: Polish & Deploy
+- [ ] Polling for live updates
+- [ ] Error handling + edge cases
+- [ ] Mobile responsiveness fine-tuning
+- [ ] Event expiration / cleanup
+- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Deployment to Azure
+- [ ] README + docs
+
+---
+
+## 17. Open Questions
+
+- [ ] Should the Votekeeper be able to edit voting options after voting has opened?
+- [ ] Should attendees see vote counts while voting is open, or should it be blind?
+- [ ] Should there be a "tie-breaker" mechanism for the reveal?
+- [ ] Do we want to support multiple voting rounds in a single event?
+- [ ] Should the event code be customizable (e.g., "HACKATHON-2026") or always auto-generated?
