@@ -192,9 +192,9 @@ async function getVoteCounts(request: HttpRequest, context: InvocationContext): 
     }
 
     const response = {
-      totalVotes: totalVotes,
+      totalVotes,
       totalVoters: uniqueVoters.size,
-      perOption: perOption,
+      perOption,
     };
 
     return { jsonBody: response };

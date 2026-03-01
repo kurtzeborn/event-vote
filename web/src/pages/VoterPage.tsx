@@ -217,7 +217,7 @@ function VotingView({
         mutation.mutate({ name: name.trim(), allocs });
       }, 1500);
     },
-    [mutation],
+    [mutation.mutate],
   );
 
   // Cleanup debounce on unmount
