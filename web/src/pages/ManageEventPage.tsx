@@ -13,6 +13,7 @@ export default function ManageEventPage() {
   const { isVotekeeper, isLoading: authLoading, login } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [showQR, setShowQR] = useState(false);
 
   const {
     data: event,
@@ -94,37 +95,45 @@ export default function ManageEventPage() {
               <span className="text-sm font-mono text-gray-400">Code: {event.id}</span>
             </div>
           </div>
-          <StatusBadge status={event.status} />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowQR(true)}
+              className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors"
+              title="Show QR Code"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="2" width="8" height="8" rx="1" /><rect x="2" y="14" width="8" height="8" rx="1" /><rect x="14" y="14" width="4" height="4" /><line x1="22" y1="14" x2="22" y2="14.01" /><line x1="22" y1="22" x2="22" y2="22.01" /><line x1="18" y1="22" x2="18" y2="22.01" /><line x1="22" y1="18" x2="22" y2="18.01" /></svg>
+            </button>
+            <StatusBadge status={event.status} />
+          </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        {/* QR Code & Links */}
-        <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Share with Voters</h2>
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <QRCodeSVG value={voterUrl} size={160} level="M" />
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="text-gray-500">Vote URL:</span>{' '}
-                <a href={voterUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline break-all">
-                  {voterUrl}
-                </a>
-              </div>
-              <div>
-                <span className="text-gray-500">Results URL:</span>{' '}
-                <a href={resultsUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline break-all">
-                  {resultsUrl}
-                </a>
-              </div>
-              <div>
-                <span className="text-gray-500">Event Code:</span>{' '}
-                <span className="font-mono text-2xl font-bold text-gray-900">{event.id}</span>
-              </div>
+      {/* QR Code Modal */}
+      {showQR && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowQR(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Scan to Vote</h2>
+            <p className="text-gray-600 text-sm mb-4">
+              Event Code: <span className="font-mono font-bold text-lg">{event.id}</span>
+            </p>
+            <div className="bg-white p-4 rounded-lg inline-block">
+              <QRCodeSVG value={voterUrl} size={200} level="M" includeMargin />
             </div>
+            <p className="text-gray-500 text-xs mt-4 break-all">{voterUrl}</p>
+            <div className="mt-3 space-y-1 text-xs text-gray-400">
+              <p>Results: <a href={resultsUrl} className="text-indigo-500 hover:underline">{resultsUrl}</a></p>
+            </div>
+            <button
+              onClick={() => setShowQR(false)}
+              className="mt-4 px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-medium transition-colors"
+            >
+              Close
+            </button>
           </div>
-        </section>
+        </div>
+      )}
 
+      <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         {/* Live Stats */}
         {voteCounts.data && (
           <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

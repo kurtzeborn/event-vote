@@ -249,6 +249,8 @@ function VotingView({
     mutation.mutate();
   };
 
+  const nameEntered = voterName.trim().length > 0;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 p-4 pb-28">
       <div className="max-w-lg mx-auto">
@@ -260,76 +262,90 @@ function VotingView({
           </p>
         </div>
 
-        {/* Voter name */}
-        <div className="bg-white rounded-xl p-4 mb-4 shadow-lg">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
-          <input
-            type="text"
-            value={voterName}
-            onChange={(e) => {
-              setVoterName(e.target.value);
-              setSubmitted(false);
-            }}
-            placeholder="Enter your name"
-            maxLength={100}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none"
-          />
-        </div>
-
-        {/* Vote allocation */}
-        <div className="space-y-3 mb-4">
-          {options.map((option) => (
-            <div key={option.id} className="bg-white rounded-xl p-4 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 mr-3">
-                  <h3 className="font-semibold text-gray-900">{option.title}</h3>
-                  {option.description && (
-                    <p className="text-sm text-gray-500 mt-0.5">{option.description}</p>
-                  )}
-                  {/* Live vote counts */}
-                  {voteCounts?.displayMode === 'per-option' && voteCounts.perOption && (
-                    <p className="text-xs text-indigo-500 mt-1">
-                      {voteCounts.perOption[option.id] ?? 0} votes
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => removeVote(option.id)}
-                    disabled={!allocations[option.id]}
-                    className="w-9 h-9 rounded-full bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 transition-colors"
-                  >
-                    −
-                  </button>
-                  <span className="w-8 text-center font-bold text-lg tabular-nums">
-                    {allocations[option.id] || 0}
-                  </span>
-                  <button
-                    onClick={() => addVote(option.id)}
-                    disabled={remaining <= 0}
-                    className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-lg flex items-center justify-center hover:bg-indigo-200 disabled:opacity-30 transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Reset button */}
-        {totalAllocated > 0 && (
-          <div className="text-center mb-3">
-            <button
-              onClick={() => {
-                setAllocations({});
+        {/* Voter name — editable until first submission, then read-only */}
+        {submitted || myVotes?.hasVoted ? (
+          <div className="bg-indigo-600/30 rounded-xl p-4 mb-4 text-center">
+            <h2 className="text-lg font-semibold text-white">{voterName.trim()}'s Votes</h2>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-4 mb-4 shadow-lg">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+            <input
+              type="text"
+              value={voterName}
+              onChange={(e) => {
+                setVoterName(e.target.value);
                 setSubmitted(false);
-                clearSession(event.id);
               }}
-              className="text-white/70 hover:text-white text-sm underline"
-            >
-              Reset All Votes
-            </button>
+              placeholder="Enter your name to vote"
+              maxLength={100}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+        )}
+
+        {/* Vote allocation — only visible after name is entered */}
+        {nameEntered ? (
+          <>
+            <div className="space-y-3 mb-4">
+              {options.map((option) => (
+                <div key={option.id} className="bg-white rounded-xl p-4 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 mr-3">
+                      <h3 className="font-semibold text-gray-900">{option.title}</h3>
+                      {option.description && (
+                        <p className="text-sm text-gray-500 mt-0.5">{option.description}</p>
+                      )}
+                      {/* Live vote counts */}
+                      {voteCounts?.displayMode === 'per-option' && voteCounts.perOption && (
+                        <p className="text-xs text-indigo-500 mt-1">
+                          {voteCounts.perOption[option.id] ?? 0} votes
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => removeVote(option.id)}
+                        disabled={!allocations[option.id]}
+                        className="w-9 h-9 rounded-full bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 transition-colors"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center font-bold text-lg tabular-nums">
+                        {allocations[option.id] || 0}
+                      </span>
+                      <button
+                        onClick={() => addVote(option.id)}
+                        disabled={remaining <= 0}
+                        className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-lg flex items-center justify-center hover:bg-indigo-200 disabled:opacity-30 transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Reset button */}
+            {totalAllocated > 0 && (
+              <div className="text-center mb-3">
+                <button
+                  onClick={() => {
+                    setAllocations({});
+                    setSubmitted(false);
+                    clearSession(event.id);
+                  }}
+                  className="text-white/70 hover:text-white text-sm underline"
+                >
+                  Reset All Votes
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-white/70 text-lg">Enter your name above to start voting</p>
           </div>
         )}
 
@@ -341,7 +357,8 @@ function VotingView({
           </p>
         )}
 
-        {/* Remaining votes - sticky bottom bar on mobile */}
+        {/* Remaining votes - sticky bottom bar on mobile (only when name entered) */}
+        {nameEntered && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 flex items-center justify-between z-40 safe-area-pb">
           <span
             className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${
@@ -363,6 +380,7 @@ function VotingView({
             </button>
           )}
         </div>
+        )}
 
         {/* Submit status / change votes */}
         {error && (
