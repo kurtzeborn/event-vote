@@ -55,8 +55,8 @@ export default function ResultsPage() {
   const maxVotes = Math.max(...results.results.map((r) => r.totalVotes), 1);
   const winner = isComplete ? results.results.find((r) => r.rank === 1) : null;
 
-  // Sort: lowest rank first (worst → best, bottom → top)
-  const sorted = [...results.results].sort((a, b) => b.rank - a.rank);
+  // Sort: best rank first (top → bottom)
+  const sorted = [...results.results].sort((a, b) => a.rank - b.rank);
 
   return (
     <div className="min-h-screen bg-gray-900 p-4 md:p-8">
