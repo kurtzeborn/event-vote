@@ -94,10 +94,18 @@ npx tsc -b
 
 ### Authentication in dev mode
 
-SWA auth is not available locally. The `/api/me` endpoint returns unauthenticated by default. To test as a votekeeper:
+SWA auth is not available locally. Mock auth is built in:
 
-1. Use the SWA CLI emulator, or
-2. Modify `functions/src/auth.ts` temporarily for local testing
+1. **Seed the dev votekeeper** (first time only — requires Azurite running):
+   ```bash
+   cd functions
+   npm run seed
+   ```
+   This creates tables and adds `scott@kurtzeborn.org` as a votekeeper.
+
+2. **Sign in** — click "Votekeeper Sign In" on the landing page. You'll see a mock login form instead of Microsoft Entra ID. Enter the seeded email and click Sign In.
+
+3. **How it works** — the mock stores a fake `clientPrincipal` in localStorage. The API client sends it as `x-ms-client-principal` header on every request, matching what Azure SWA does in production.
 
 ### Vite proxy
 

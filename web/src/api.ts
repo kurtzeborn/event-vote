@@ -1,4 +1,5 @@
 const API_BASE = '/api';
+const isDev = import.meta.env.DEV;
 
 class ApiError extends Error {
   status: number;
@@ -9,6 +10,14 @@ class ApiError extends Error {
   }
 }
 
+/** In dev mode, read mock auth from localStorage and send as x-ms-client-principal header */
+function getDevAuthHeaders(): Record<string, string> {
+  if (!isDev) return {};
+  const stored = localStorage.getItem('mockAuthPrincipal');
+  if (!stored) return {};
+  return { 'x-ms-client-principal': btoa(stored) };
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   let res: Response;
@@ -17,6 +26,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...getDevAuthHeaders(),
         ...options?.headers,
       },
     });

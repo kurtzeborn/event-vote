@@ -10,6 +10,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "start": "npm run build && func start",
+    "seed": "npx tsx tools/seed-dev.ts",
     "test": "vitest",
     "test:run": "vitest run"
   },
