@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../api.ts';
 import { getDeviceFingerprint } from '../utils/fingerprint.ts';
-import type { EventPublicResponse, VotingOption, VoterSession, VoteCountsResponse } from '../types.ts';
+import type { EventPublicResponse, VotingOption, VoterSession } from '../types.ts';
 
 // --- localStorage session helpers ---
 const SESSION_KEY_PREFIX = 'evote_session_';
@@ -63,14 +63,6 @@ export default function VoterPage() {
     enabled: !!eventId,
   });
 
-  // Fetch vote counts for live updates
-  const { data: voteCounts } = useQuery({
-    queryKey: ['voteCounts', eventId],
-    queryFn: () => api.getVoteCounts(eventId!),
-    enabled: !!eventId && (event?.status === 'open' || event?.status === 'closed'),
-    refetchInterval: 3000,
-  });
-
   if (eventLoading) {
     return <LoadingScreen />;
   }
@@ -97,13 +89,12 @@ export default function VoterPage() {
           event={event}
           options={options ?? []}
           myVotes={myVotes ?? null}
-          voteCounts={voteCounts ?? null}
           fingerprint={fingerprint}
           queryClient={queryClient}
         />
       );
     case 'closed':
-      return <WaitingScreen event={event} message="Voting is closed. Results coming soon!" voteCounts={voteCounts} />;
+      return <WaitingScreen event={event} message="Voting is closed. Results coming soon!" />;
     case 'revealing':
     case 'complete':
       return (
@@ -147,11 +138,9 @@ function ErrorScreen({ message }: { message: string }) {
 function WaitingScreen({
   event,
   message,
-  voteCounts,
 }: {
   event: EventPublicResponse;
   message: string;
-  voteCounts?: VoteCountsResponse | null;
 }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 p-4">
@@ -159,9 +148,6 @@ function WaitingScreen({
         <h1 className="text-xl font-bold text-gray-900 mb-2">{event.name}</h1>
         <div className="text-4xl mb-4 animate-pulse">⏳</div>
         <p className="text-gray-600 mb-4">{message}</p>
-        {voteCounts?.totalVoters !== undefined && (
-          <p className="text-sm text-gray-400">{voteCounts.totalVoters} voters participated</p>
-        )}
         <p className="text-xs text-gray-400 mt-4">This page auto-refreshes</p>
       </div>
     </div>
@@ -172,14 +158,12 @@ function VotingView({
   event,
   options,
   myVotes,
-  voteCounts,
   fingerprint,
   queryClient,
 }: {
   event: EventPublicResponse;
   options: VotingOption[];
   myVotes: VoterSession | null;
-  voteCounts: VoteCountsResponse | null;
   fingerprint: string;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
@@ -190,7 +174,6 @@ function VotingView({
   );
   const [submitted, setSubmitted] = useState(myVotes?.hasVoted ?? local?.hasVoted ?? false);
   const [error, setError] = useState('');
-  const [showPerOption, setShowPerOption] = useState(false);
 
   // Persist session to localStorage on changes
   useEffect(() => {
@@ -207,7 +190,6 @@ function VotingView({
       setSubmitted(true);
       setError('');
       queryClient.invalidateQueries({ queryKey: ['myVotes', event.id] });
-      queryClient.invalidateQueries({ queryKey: ['voteCounts', event.id] });
     },
     onError: (err: Error) => {
       if (err instanceof ApiError && err.status === 409) {
@@ -297,12 +279,6 @@ function VotingView({
                       {option.description && (
                         <p className="text-sm text-gray-500 mt-0.5">{option.description}</p>
                       )}
-                      {/* Live vote counts per option */}
-                      {showPerOption && voteCounts?.perOption && (
-                        <p className="text-xs text-indigo-500 mt-1">
-                          {voteCounts.perOption[option.id] ?? 0} votes
-                        </p>
-                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -347,22 +323,6 @@ function VotingView({
         ) : (
           <div className="text-center py-8">
             <p className="text-white/70 text-lg">Enter your name above to start voting</p>
-          </div>
-        )}
-
-        {/* Live total counts + per-option toggle */}
-        {voteCounts && (
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <p className="text-white/70 text-sm">
-              {voteCounts.totalVoters} voter{voteCounts.totalVoters !== 1 ? 's' : ''} so far
-              ({voteCounts.totalVotes} total votes)
-            </p>
-            <button
-              onClick={() => setShowPerOption((v) => !v)}
-              className="text-white/60 hover:text-white text-xs underline transition-colors"
-            >
-              {showPerOption ? 'Hide' : 'Show'} per-option
-            </button>
           </div>
         )}
 
