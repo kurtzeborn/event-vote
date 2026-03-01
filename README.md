@@ -6,7 +6,7 @@ Live audience voting for events. Attendees scan a QR code or enter a 4-letter ev
 
 - **Votekeepers** (admins) create events, configure voting options, and control the event lifecycle
 - **Voters** join via code/QR, allocate votes across options, and watch results revealed live
-- Scavenger-hunt-style reveal: results shown from lowest to highest rank with animations
+- Dramatic reveal: results shown from lowest to highest rank with animations
 - Medal icons for top 3, winner celebration banner with sparkles
 - PDF report generation for completed events
 - Anti-fraud protection via device fingerprinting + session cookies
