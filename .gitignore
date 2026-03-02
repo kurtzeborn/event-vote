@@ -5,6 +5,10 @@ node_modules/
 dist/
 *.js.map
 
+# Deploy artifacts
+functions/deploy/
+functions/deploy.zip
+
 # Azure Storage emulator
 .azurite/
 __blobstorage__/
