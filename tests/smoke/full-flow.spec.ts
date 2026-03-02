@@ -91,8 +91,9 @@ test('create event → vote → reveal → complete', async ({ browser }) => {
   await voter.goto(`/join/${eventId}`);
   await expect(voter.getByText('Smoke Test Event')).toBeVisible();
 
-  // Enter voter name
+  // Enter voter name and confirm
   await voter.getByPlaceholder(/enter your name/i).fill('Test Voter');
+  await voter.getByRole('button', { name: /join/i }).click();
 
   // Voting option buttons should appear
   await expect(voter.getByText('Option Alpha')).toBeVisible();

@@ -169,6 +169,10 @@ function VotingView({
 }) {
   const local = loadSession(event.id);
   const [voterName, setVoterName] = useState(myVotes?.voterName ?? local?.voterName ?? '');
+  const [nameConfirmed, setNameConfirmed] = useState(
+    // Auto-confirm if returning voter already has a name on record
+    !!(myVotes?.voterName || local?.voterName),
+  );
   const [allocations, setAllocations] = useState<Record<string, number>>(
     myVotes?.hasVoted ? myVotes.allocations : local?.allocations ?? {},
   );
@@ -243,8 +247,6 @@ function VotingView({
     scheduleSubmit(voterName, next);
   };
 
-  const nameEntered = voterName.trim().length > 0;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 p-4 pb-20">
       <div className="max-w-lg mx-auto">
@@ -257,23 +259,42 @@ function VotingView({
         </div>
 
         {/* Voter name */}
-        <div className="bg-white rounded-xl p-4 mb-4 shadow-lg">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
-          <input
-            type="text"
-            value={voterName}
-            onChange={(e) => {
-              setVoterName(e.target.value);
-              if (totalAllocated > 0) scheduleSubmit(e.target.value, allocations);
-            }}
-            placeholder="Enter your name to vote"
-            maxLength={100}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none"
-          />
-        </div>
+        {nameConfirmed ? (
+          <div className="bg-white/20 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+            <span className="text-white font-medium">{voterName}</span>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-4 mb-4 shadow-lg">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (voterName.trim()) setNameConfirmed(true);
+              }}
+              className="flex gap-2"
+            >
+              <input
+                type="text"
+                value={voterName}
+                onChange={(e) => setVoterName(e.target.value)}
+                placeholder="Enter your name to vote"
+                maxLength={100}
+                autoFocus
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!voterName.trim()}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+              >
+                Join
+              </button>
+            </form>
+          </div>
+        )}
 
-        {/* Vote allocation — only visible after name is entered */}
-        {nameEntered ? (
+        {/* Vote allocation — only visible after name is confirmed */}
+        {nameConfirmed ? (
           <>
             <div className="space-y-3 mb-4">
               {options.map((option) => (
@@ -328,7 +349,7 @@ function VotingView({
           </>
         ) : (
           <div className="text-center py-8">
-            <p className="text-white/70 text-lg">Enter your name above to start voting</p>
+            <p className="text-white/70 text-lg">Enter your name and tap Join to start voting</p>
           </div>
         )}
 
@@ -340,7 +361,7 @@ function VotingView({
         )}
 
         {/* Sticky bottom bar — remaining votes + save status */}
-        {nameEntered && (
+        {nameConfirmed && (
           <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 flex items-center justify-between z-40 safe-area-pb">
             <span
               className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${
