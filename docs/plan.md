@@ -607,7 +607,6 @@ event-vote/
 
 ### Phase 2: Core Voting
 - [x] Voting option management (add/edit/remove/reorder)
-- [ ] Projector-friendly setup view (prominent event title)
 - [x] QR code generation
 - [x] Voter name entry
 - [x] Attendee ballot view (mobile-first, vote reset + change)
@@ -631,7 +630,7 @@ event-vote/
 - [x] Error handling + edge cases (disconnect recovery, voting closed mid-edit)
 - [x] Mobile responsiveness fine-tuning
 - [x] Event expiration / cleanup
-- [ ] Smoke tests (Playwright — create event, vote, reveal flow)
+- [x] Smoke tests (Playwright — create event, vote, reveal flow)
 - [x] CI/CD pipeline (GitHub Actions — build + unit tests + smoke tests)
 - [x] Deployment to Azure
 - [x] README + docs

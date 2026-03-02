@@ -56,3 +56,66 @@ jobs:
       - name: Build
         working-directory: web
         run: npx vite build
+
+  smoke:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [functions, web]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Azurite
+        run: npm install -g azurite
+
+      - name: Install Azure Functions Core Tools
+        run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+
+      - name: Install all dependencies
+        run: |
+          npm ci
+          cd functions && npm ci
+          cd ../web && npm ci
+
+      - name: Build Functions
+        working-directory: functions
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start services
+        run: |
+          # Start Azurite in background
+          azurite --silent --blobPort 10000 --queuePort 10001 --tablePort 10002 &
+
+          # Start Functions in background
+          cd functions && npx func start --port 7071 &
+
+          # Start Vite dev server in background
+          cd web && npx vite --port 5173 &
+
+          # Wait for all services to be ready
+          echo "Waiting for services..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5173/api/me > /dev/null 2>&1; then
+              echo "Services ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run smoke tests
+        run: npm run test:smoke
+
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: test-results/
+          retention-days: 7

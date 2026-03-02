@@ -10,6 +10,8 @@ functions/deploy/
 
 # Azure Storage emulator
 .azurite/
+__azurite_db_*__*
+AzuriteConfig
 __blobstorage__/
 __queuestorage__/
 __tablestorage__/
@@ -31,3 +33,6 @@ npm-debug.log*
 
 # Test coverage
 coverage/
+# Playwright
+test-results/
+playwright-report/

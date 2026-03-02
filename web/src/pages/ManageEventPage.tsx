@@ -244,7 +244,10 @@ function RevealView({
   resultsUrl: string;
 }) {
   const [prevRevealed, setPrevRevealed] = useState(event.revealedCount ?? 0);
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event', event.id] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['event', event.id] });
+    queryClient.invalidateQueries({ queryKey: ['results', event.id] });
+  };
 
   // Fetch results for the reveal
   const { data: results } = useQuery({

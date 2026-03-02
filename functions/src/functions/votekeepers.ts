@@ -104,7 +104,7 @@ async function seedVotekeeper(request: HttpRequest, context: InvocationContext):
       return { status: 401, jsonBody: { error: 'Authentication required' } };
     }
     const decoded = JSON.parse(Buffer.from(header, 'base64').toString('utf-8'));
-    const userId = decoded.userId;
+    const email = (decoded.userDetails || decoded.userId).toLowerCase();
     const displayName = decoded.userDetails || decoded.userId;
 
     // Check if any votekeepers exist
@@ -122,7 +122,7 @@ async function seedVotekeeper(request: HttpRequest, context: InvocationContext):
 
     const entity: VotekeeperEntity = {
       partitionKey: 'votekeeper',
-      rowKey: userId,
+      rowKey: email,
       displayName: displayName,
       addedAt: new Date().toISOString(),
       addedBy: 'system',
