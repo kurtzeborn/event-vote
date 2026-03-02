@@ -16,6 +16,7 @@ export interface MeResponse {
 
 export interface EventConfig {
   votesPerAttendee: number;
+  theme?: string;
 }
 
 export interface VoteEvent {
@@ -54,6 +55,7 @@ export interface ResultsResponse {
   eventId: string;
   eventName: string;
   status: EventStatus;
+  theme?: string;
   totalVotes: number;
   totalVoters: number;
   revealedCount: number;
@@ -85,5 +87,6 @@ export interface EventPublicResponse {
   status: EventStatus;
   config: {
     votesPerAttendee: number;
+    theme?: string;
   };
 }

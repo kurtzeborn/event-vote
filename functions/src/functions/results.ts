@@ -114,10 +114,13 @@ async function getResults(request: HttpRequest, context: InvocationContext): Pro
       }));
     }
 
+    const config = parseEventConfig(event);
+
     const response: ResultsResponse = {
       eventId,
       eventName: event.name,
       status: event.status,
+      theme: config.theme,
       totalVotes,
       totalVoters,
       revealedCount,
@@ -339,6 +342,7 @@ async function getPublicEvent(request: HttpRequest, context: InvocationContext):
         status: event.status,
         config: {
           votesPerAttendee: config.votesPerAttendee,
+          theme: config.theme,
         },
       },
     };

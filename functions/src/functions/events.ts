@@ -25,6 +25,7 @@ async function createEvent(request: HttpRequest, context: InvocationContext): Pr
 
     const config: EventConfig = {
       votesPerAttendee: body.config?.votesPerAttendee ?? 3,
+      theme: body.config?.theme ?? 'indigo',
     };
 
     // Validate config
@@ -139,6 +140,9 @@ async function updateEvent(request: HttpRequest, context: InvocationContext): Pr
           return { status: 400, jsonBody: { error: 'Votes per attendee must be between 1 and 10' } };
         }
         currentConfig.votesPerAttendee = body.config.votesPerAttendee;
+      }
+      if (body.config.theme !== undefined) {
+        currentConfig.theme = body.config.theme;
       }
       entity.config = JSON.stringify(currentConfig);
     }

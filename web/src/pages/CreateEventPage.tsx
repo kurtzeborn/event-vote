@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { api, ApiError } from '../api.ts';
+import ThemePicker from '../components/ThemePicker.tsx';
+import { DEFAULT_THEME } from '../themes.ts';
 
 export default function CreateEventPage() {
   const { isVotekeeper, isLoading: authLoading, login } = useAuth();
@@ -10,13 +12,14 @@ export default function CreateEventPage() {
 
   const [name, setName] = useState('');
   const [votesPerAttendee, setVotesPerAttendee] = useState(3);
+  const [theme, setTheme] = useState(DEFAULT_THEME);
   const [error, setError] = useState('');
 
   const createMutation = useMutation({
     mutationFn: () =>
       api.createEvent({
         name: name.trim(),
-        config: { votesPerAttendee },
+        config: { votesPerAttendee, theme },
       }),
     onSuccess: (event) => {
       navigate(`/manage/${event.id}`);
@@ -105,6 +108,17 @@ export default function CreateEventPage() {
             </select>
             <p className="text-xs text-gray-400 mt-1">
               Each voter can distribute this many votes across options.
+            </p>
+          </div>
+
+          {/* Color Theme */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Color Theme
+            </label>
+            <ThemePicker value={theme} onChange={setTheme} />
+            <p className="text-xs text-gray-400 mt-2">
+              Sets the look and feel for voters and results.
             </p>
           </div>
 

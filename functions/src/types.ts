@@ -21,6 +21,7 @@ export type EventStatus = 'setup' | 'open' | 'closed' | 'revealing' | 'complete'
 
 export interface EventConfig {
   votesPerAttendee: number;     // Default 3, configurable 1-10
+  theme?: string;               // Color theme ID (default: 'indigo')
 }
 
 export interface VoteEvent {
@@ -134,6 +135,7 @@ export interface ResultsResponse {
   eventId: string;
   eventName: string;
   status: EventStatus;
+  theme?: string;
   totalVotes: number;
   totalVoters: number;
   revealedCount: number;

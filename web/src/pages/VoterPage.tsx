@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../api.ts';
 import { getDeviceFingerprint } from '../utils/fingerprint.ts';
+import { getTheme } from '../themes.ts';
 import type { EventPublicResponse, VotingOption, VoterSession } from '../types.ts';
 
 // --- localStorage session helpers ---
@@ -96,21 +97,23 @@ export default function VoterPage() {
     case 'closed':
       return <WaitingScreen event={event} message="Voting is closed. Results coming soon!" />;
     case 'revealing':
-    case 'complete':
+    case 'complete': {
+      const t = getTheme(event.config.theme);
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 p-4">
+        <div className={`min-h-screen flex flex-col items-center justify-center ${t.gradient} p-4`}>
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md text-center">
             <h1 className="text-xl font-bold text-gray-900 mb-2">{event.name}</h1>
             <p className="text-gray-600 mb-4">Results are being revealed!</p>
             <Link
               to={`/results/${eventId}`}
-              className="inline-block bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-indigo-700 transition-colors"
+              className={`inline-block ${t.buttonPrimary} text-white font-semibold py-3 px-6 rounded-xl transition-colors`}
             >
               View Results
             </Link>
           </div>
         </div>
       );
+    }
   }
 }
 
@@ -142,8 +145,9 @@ function WaitingScreen({
   event: EventPublicResponse;
   message: string;
 }) {
+  const t = getTheme(event.config.theme);
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 p-4">
+    <div className={`min-h-screen flex flex-col items-center justify-center ${t.gradient} p-4`}>
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md text-center">
         <h1 className="text-xl font-bold text-gray-900 mb-2">{event.name}</h1>
         <div className="text-4xl mb-4 animate-pulse">⏳</div>
@@ -181,6 +185,7 @@ function VotingView({
     myVotes?.hasVoted || local?.hasVoted ? 'saved' : 'idle',
   );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const t = getTheme(event.config.theme);
 
   // Persist session to localStorage on changes
   useEffect(() => {
@@ -248,7 +253,7 @@ function VotingView({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 p-4 pb-20">
+    <div className={`min-h-screen ${t.gradient} p-4 pb-20`}>
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="text-center mb-6 pt-4">
@@ -260,7 +265,7 @@ function VotingView({
 
         {/* Voter name */}
         {nameConfirmed ? (
-          <div className="bg-white/20 rounded-xl px-4 py-3 mb-4 flex items-center justify-between">
+          <div className={`${t.nameBar} rounded-xl px-4 py-3 mb-4 flex items-center justify-between`}>
             <span className="text-white font-medium">{voterName}</span>
           </div>
         ) : (
@@ -280,12 +285,12 @@ function VotingView({
                 placeholder="Enter your name to vote"
                 maxLength={100}
                 autoFocus
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none"
+                className={`flex-1 border border-gray-300 rounded-lg px-3 py-2 ${t.focusBorder} focus:outline-none`}
               />
               <button
                 type="submit"
                 disabled={!voterName.trim()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+                className={`px-4 py-2 ${t.buttonPrimary} text-white rounded-lg font-medium disabled:opacity-40 transition-colors`}
               >
                 Join
               </button>
@@ -320,7 +325,7 @@ function VotingView({
                       <button
                         onClick={() => addVote(option.id)}
                         disabled={remaining <= 0}
-                        className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-lg flex items-center justify-center hover:bg-indigo-200 disabled:opacity-30 transition-colors"
+                        className={`w-9 h-9 rounded-full ${t.votePlus} font-bold text-lg flex items-center justify-center disabled:opacity-30 transition-colors`}
                       >
                         +
                       </button>
@@ -365,7 +370,7 @@ function VotingView({
           <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 flex items-center justify-between z-40 safe-area-pb">
             <span
               className={`inline-block px-4 py-1 rounded-full text-sm font-medium ${
-                remaining > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'
+                remaining > 0 ? t.badgeLight : 'bg-green-100 text-green-700'
               }`}
             >
               {remaining > 0 ? `${remaining} vote${remaining !== 1 ? 's' : ''} remaining` : 'All votes allocated!'}

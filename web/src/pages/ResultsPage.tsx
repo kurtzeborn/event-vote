@@ -6,6 +6,7 @@ import { api } from '../api.ts';
 import type { ResultsResponse, OptionResult } from '../types.ts';
 import { MEDAL, MEDAL_COLORS, getRankBarColor, getRankChartColor } from '../constants.ts';
 import WinnerBanner from '../components/WinnerBanner.tsx';
+import { getTheme } from '../themes.ts';
 
 export default function ResultsPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -54,6 +55,7 @@ export default function ResultsPage() {
   const isComplete = results.status === 'complete';
   const maxVotes = Math.max(...results.results.map((r) => r.totalVotes), 1);
   const winner = isComplete ? results.results.find((r) => r.rank === 1) : null;
+  const t = getTheme(results.theme);
 
   // Sort: best rank first (top → bottom)
   const sorted = [...results.results].sort((a, b) => a.rank - b.rank);
@@ -66,12 +68,12 @@ export default function ResultsPage() {
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{results.eventName}</h1>
           {isRevealing && (
             <div>
-              <p className="text-indigo-400 text-sm animate-pulse mb-2">
+              <p className={`${t.accentText} text-sm animate-pulse mb-2`}>
                 Revealing {results.revealedCount} of {results.totalOptions}...
               </p>
               <div className="w-48 mx-auto bg-white/10 rounded-full h-2 overflow-hidden">
                 <div
-                  className="h-full bg-indigo-500 rounded-full transition-all duration-700"
+                  className={`h-full ${t.votePlus} rounded-full transition-all duration-700`}
                   style={{ width: `${(results.revealedCount / results.totalOptions) * 100}%` }}
                 />
               </div>
@@ -113,7 +115,7 @@ export default function ResultsPage() {
             <div className="flex flex-col items-center gap-3 mt-8">
               <a
                 href={api.getPdfUrl(eventId!)}
-                className="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-xl hover:bg-indigo-700 transition-colors"
+                className={`${t.buttonPrimary} text-white font-semibold py-2 px-6 rounded-xl transition-colors`}
                 target="_blank"
                 rel="noopener noreferrer"
               >

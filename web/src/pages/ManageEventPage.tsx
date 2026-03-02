@@ -7,6 +7,7 @@ import { api } from '../api.ts';
 import type { VoteEvent } from '../types.ts';
 import { MEDAL, STATUS_LABELS, getRankBarColor } from '../constants.ts';
 import WinnerBanner from '../components/WinnerBanner.tsx';
+import ThemePicker from '../components/ThemePicker.tsx';
 
 export default function ManageEventPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -218,6 +219,21 @@ export default function ManageEventPage() {
                 ))}
               </div>
             )}
+          </section>
+        )}
+
+        {/* Theme (setup only) */}
+        {event.status === 'setup' && (
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">Color Theme</h2>
+            <ThemePicker
+              value={event.config.theme ?? 'indigo'}
+              onChange={(themeId) => {
+                api.updateEvent(event.id, { config: { theme: themeId } }).then(() => {
+                  queryClient.invalidateQueries({ queryKey: ['event', event.id] });
+                });
+              }}
+            />
           </section>
         )}
 
