@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext.tsx';
@@ -7,7 +7,7 @@ import type { VoteEvent } from '../types.ts';
 import { STATUS_LABELS } from '../constants.ts';
 
 export default function DashboardPage() {
-  const { isAuthenticated, isVotekeeper, isLoading: authLoading, login } = useAuth();
+  const { isAuthenticated, isVotekeeper, isLoading: authLoading, login, logout, user } = useAuth();
   const queryClient = useQueryClient();
 
   // Seed mutation for first-time setup
@@ -82,12 +82,23 @@ export default function DashboardPage() {
           <Link to="/" className="text-xl font-bold text-indigo-600">
             🗳️ Event Vote
           </Link>
-          <Link
-            to="/create"
-            className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
-          >
-            + New Event
-          </Link>
+          <div className="flex items-center gap-4">
+            {user && (
+              <span className="text-sm text-gray-500 hidden sm:inline">{user.userDetails}</span>
+            )}
+            <Link
+              to="/create"
+              className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+            >
+              + New Event
+            </Link>
+            <button
+              onClick={logout}
+              className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </header>
 
@@ -114,7 +125,7 @@ export default function DashboardPage() {
         {events && events.length > 0 && (
           <div className="grid gap-4">
             {events.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event.id} event={event} onDeleted={() => queryClient.invalidateQueries({ queryKey: ['events'] })} />
             ))}
           </div>
         )}
@@ -123,9 +134,29 @@ export default function DashboardPage() {
   );
 }
 
-function EventCard({ event }: { event: VoteEvent }) {
+function EventCard({ event, onDeleted }: { event: VoteEvent; onDeleted: () => void }) {
   const status = STATUS_LABELS[event.status] ?? STATUS_LABELS.setup;
   const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteEvent(event.id),
+    onSuccess: onDeleted,
+  });
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    deleteMutation.mutate();
+  };
+
+  const cancelDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirming(false);
+  };
 
   return (
     <div
@@ -133,7 +164,7 @@ function EventCard({ event }: { event: VoteEvent }) {
       onClick={() => navigate(`/manage/${event.id}`)}
     >
       <div className="flex items-center justify-between">
-        <div>
+        <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-gray-900 text-lg">{event.name}</h3>
           <div className="flex items-center gap-3 mt-1">
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
@@ -145,7 +176,37 @@ function EventCard({ event }: { event: VoteEvent }) {
             </span>
           </div>
         </div>
-        <span className="text-gray-400 text-xl">→</span>
+        <div className="flex items-center gap-2 ml-3">
+          {confirming ? (
+            <>
+              <button
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="text-xs text-white bg-red-500 hover:bg-red-600 rounded-lg px-2 py-1 transition-colors disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? '...' : 'Confirm'}
+              </button>
+              <button
+                onClick={cancelDelete}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleDelete}
+              className="p-2 text-gray-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+              title="Delete event"
+            >
+              {/* Trash can icon (Heroicons outline) */}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+            </button>
+          )}
+          <span className="text-gray-400 text-xl">→</span>
+        </div>
       </div>
     </div>
   );
