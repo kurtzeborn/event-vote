@@ -523,36 +523,35 @@ Since we're using polling instead of real-time WebSockets:
 ```
 event-vote/
 ├── .github/
-│   ├── copilot-instructions.md
 │   └── workflows/
-│       └── deploy.yml
+│       ├── ci.yml               # Build + test on push/PR
+│       └── deploy.yml           # Build + test + deploy on push to main
 ├── docs/
 │   ├── plan.md                  # This file
 │   ├── DEPLOYMENT.md
 │   └── DEVELOPMENT.md
 ├── functions/
 │   ├── host.json
-│   ├── local.settings.json
 │   ├── local.settings.json.template
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── src/
+│       ├── auth.ts              # Auth helpers (extract client principal)
+│       ├── storage.ts           # Table Storage client setup
+│       ├── types.ts             # Shared TypeScript interfaces
+│       ├── utils.ts             # Common utilities
 │       ├── functions/
 │       │   ├── events.ts        # Event CRUD + lifecycle
 │       │   ├── options.ts       # Voting option management
-│       │   ├── vote.ts          # Vote submission
-│       │   ├── results.ts       # Results + reveal + report generation
+│       │   ├── vote.ts          # Vote submission + anti-fraud
+│       │   ├── results.ts       # Results + reveal + PDF generation
 │       │   ├── votekeepers.ts   # Votekeeper management
-│       │   └── me.ts            # Auth status
-│       ├── services/
-│       │   ├── eventService.ts
-│       │   ├── voteService.ts
-│       │   ├── tableStorageService.ts
-│       │   ├── reportService.ts # Report data + server-side PDF generation (pdf-lib)
-│       │   └── codeGenerator.ts # 4-letter event code generation + offensive word filter
-│       └── utils/
-│           ├── auth.ts
-│           └── validation.ts
+│       │   └── me.ts            # Auth status endpoint
+│       └── services/
+│           ├── codeGenerator.ts # 4-letter event code generation + offensive word filter
+│           ├── codeGenerator.test.ts
+│           ├── vote.test.ts     # Vote service tests
+│           └── results.test.ts  # Results service tests
 ├── infra/
 │   └── main.bicep               # SWA (Free) + Storage Account
 ├── web/
@@ -561,31 +560,33 @@ event-vote/
 │   ├── tsconfig.json
 │   ├── vite.config.ts
 │   └── src/
-│       ├── App.tsx
-│       ├── main.tsx
-│       ├── index.css
+│       ├── App.tsx              # Router + layout
+│       ├── main.tsx             # Entry point
+│       ├── api.ts               # Typed API client
+│       ├── types.ts             # Shared types
+│       ├── constants.ts         # App constants
+│       ├── index.css            # Tailwind + global styles
+│       ├── vite-env.d.ts
+│       ├── contexts/
+│       │   └── AuthContext.tsx   # Auth provider + useAuth hook
 │       ├── components/
-│       │   ├── common/          # Shared components
-│       │   ├── landing/         # Landing page
-│       │   ├── dashboard/       # Votekeeper dashboard
-│       │   ├── event/           # Votekeeper event management
-│       │   │   ├── SetupView.tsx
-│       │   │   ├── VotingOpenView.tsx
-│       │   │   ├── RevealView.tsx
-│       │   │   └── ResultsView.tsx
-│       │   └── voter/           # Attendee views
-│       │       ├── BallotView.tsx
-│       │       ├── NameEntryView.tsx
-│       │       ├── WaitingView.tsx
-│       │       └── VoterResultsView.tsx
-│       ├── hooks/
-│       ├── services/
-│       └── types/
-├── tests/
-│   ├── unit/                    # Unit tests (Vitest)
-│   │   ├── functions/           # API function tests
-│   │   └── web/                 # Component + hook tests
-│   └── smoke/                   # Smoke tests (Playwright)
+│       │   ├── ErrorBoundary.tsx
+│       │   ├── OfflineBanner.tsx
+│       │   └── WinnerBanner.tsx
+│       ├── pages/
+│       │   ├── LandingPage.tsx       # Join event or sign in
+│       │   ├── DashboardPage.tsx     # Votekeeper event list
+│       │   ├── CreateEventPage.tsx   # Create new event
+│       │   ├── ManageEventPage.tsx   # Votekeeper event management + reveal
+│       │   ├── VoterPage.tsx         # Attendee ballot + voting
+│       │   ├── ResultsPage.tsx       # Public results + PDF
+│       │   ├── MockAuthPage.tsx      # Dev-only mock login
+│       │   └── NotFoundPage.tsx
+│       └── utils/
+│           └── fingerprint.ts   # Device fingerprint generation
+├── start-dev.ps1                # Windows dev launcher
+├── start-dev.sh                 # macOS/Linux dev launcher
+├── stop-dev.ps1                 # Stop dev processes (Windows)
 ├── staticwebapp.config.json
 ├── README.md
 └── .gitignore
@@ -597,7 +598,7 @@ event-vote/
 
 ### Phase 1: Foundation
 - [x] Project scaffolding (React + Vite + Tailwind + Azure Functions)
-- [x] Infrastructure (Bicep for SWA Free + Storage + Functions in `rg-event-vote`)
+- [x] Infrastructure (Bicep for SWA Free + Storage in `rg-event-vote`)
 - [x] Auth setup (Entra ID + Votekeeper allowlist)
 - [x] Basic event CRUD API (with prominent event title)
 - [x] Votekeeper dashboard + create event flow
@@ -652,7 +653,7 @@ event-vote/
 
 ### CI/CD
 - Unit tests run on every push/PR
-- Smoke tests run on deploy to staging
+- Deploy runs on push to `main`
 
 ---
 

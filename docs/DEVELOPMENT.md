@@ -109,7 +109,7 @@ SWA auth is not available locally. Mock auth is built in:
 
 ### Vite proxy
 
-The Vite dev server proxies `/api/*` requests to `http://localhost:7071` — see `web/vite.config.js`.
+The Vite dev server proxies `/api/*` requests to `http://localhost:7071` — see `web/vite.config.ts`.
 
 ## Code Style
 
