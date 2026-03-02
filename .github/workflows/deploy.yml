@@ -25,11 +25,21 @@ jobs:
         run: |
           npm ci
           npm run build
-          echo '{"IsEncrypted":false,"Values":{"FUNCTIONS_WORKER_RUNTIME":"node"}}' > local.settings.json
 
       - name: Run Functions tests
         working-directory: functions
         run: npm run test:run
+
+      - name: Prepare Functions deploy
+        working-directory: functions
+        run: |
+          mkdir -p deploy
+          cp -r dist deploy/
+          cp host.json deploy/
+          cp package.json deploy/
+          cp package-lock.json deploy/
+          echo '{"IsEncrypted":false,"Values":{"FUNCTIONS_WORKER_RUNTIME":"node"}}' > deploy/local.settings.json
+          cd deploy && npm ci --omit=dev
 
       # --- Web ---
       - name: Install & build Web
@@ -47,5 +57,6 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: web/dist
-          api_location: functions
+          api_location: functions/deploy
           skip_app_build: true
+          skip_api_build: true
