@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { api } from '../api.ts';
-import type { VoteEvent, OptionResult } from '../types.ts';
+import type { VoteEvent } from '../types.ts';
 import { MEDAL, STATUS_LABELS, getRankBarColor } from '../constants.ts';
 import WinnerBanner from '../components/WinnerBanner.tsx';
 
