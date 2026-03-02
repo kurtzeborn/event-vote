@@ -55,7 +55,8 @@ jobs:
         working-directory: functions
         run: |
           npm ci --omit=dev
-          cp -r dist/ deploy/
+          mkdir -p deploy
+          cp -r dist/ deploy/dist/
           cp host.json deploy/
           cp package.json deploy/
           cp -r node_modules/ deploy/node_modules/
