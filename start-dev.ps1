@@ -148,14 +148,9 @@ if ($functionsReady) {
     exit 1
 }
 
-# Update Vite proxy config
-$viteConfigPath = Join-Path $PSScriptRoot "web\vite.config.ts"
-$viteConfig = Get-Content $viteConfigPath -Raw
-$pattern = "target: 'http://[^']+'"
-$replacement = "target: 'http://${wslIp}:${FunctionsPort}'"
-$newConfig = $viteConfig -replace $pattern, $replacement
-$newConfig | Set-Content $viteConfigPath -NoNewline
-Write-Host "   OK: Updated proxy target to http://${wslIp}:${FunctionsPort}" -ForegroundColor Green
+# Set API_TARGET env var for Vite proxy
+$env:API_TARGET = "http://${wslIp}:${FunctionsPort}"
+Write-Host "   OK: API_TARGET set to http://${wslIp}:${FunctionsPort}" -ForegroundColor Green
 
 # Install web dependencies if needed
 $nodeModulesPath = Join-Path $PSScriptRoot "web\node_modules"

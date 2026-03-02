@@ -99,15 +99,8 @@ jobs:
           # Start Vite dev server in background
           cd web && npx vite --port 5173 &
 
-          # Wait for all services to be ready
-          echo "Waiting for services..."
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:5173/api/me > /dev/null 2>&1; then
-              echo "Services ready after ${i}s"
-              break
-            fi
-            sleep 1
-          done
+          # Global setup in Playwright waits for services to be ready
+          sleep 5
 
       - name: Run smoke tests
         run: npm run test:smoke

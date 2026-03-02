@@ -111,12 +111,12 @@ async function seedVotekeeper(request: HttpRequest, context: InvocationContext):
     const existing = votekeepersTable.listEntities<VotekeeperEntity>({
       queryOptions: { filter: `PartitionKey eq 'votekeeper'` },
     });
-    let count = 0;
+    let hasAny = false;
     for await (const _ of existing) {
-      count++;
+      hasAny = true;
       break;
     }
-    if (count > 0) {
+    if (hasAny) {
       return { status: 400, jsonBody: { error: 'Votekeepers already exist. Use POST /api/votekeepers to add more.' } };
     }
 

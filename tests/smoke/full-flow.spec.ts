@@ -16,7 +16,7 @@
  * Prerequisites: the local dev environment must be running
  *   (Azurite + Azure Functions + Vite dev server).
  */
-import { test, expect, type Page, type BrowserContext } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ test('create event → vote → reveal → complete', async ({ browser }) => {
   await expect(vk.getByText(/open/i).first()).toBeVisible();
 
   // ── 5. Voter: join, enter name, cast votes ──────────────────────────
-  const voterContext: BrowserContext = await browser.newContext({
+  const voterContext = await browser.newContext({
     viewport: { width: 375, height: 812 }, // iPhone-like viewport
   });
   const voter = await voterContext.newPage();
