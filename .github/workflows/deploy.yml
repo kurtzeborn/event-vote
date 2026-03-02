@@ -30,6 +30,12 @@ jobs:
         working-directory: functions
         run: npm run test:run
 
+      - name: Prepare Functions for SWA
+        working-directory: functions
+        run: |
+          npm ci --omit=dev
+          rm -rf src tools tsconfig.json
+
       # --- Web ---
       - name: Install & build Web
         working-directory: web
@@ -48,3 +54,4 @@ jobs:
           app_location: web/dist
           api_location: functions
           skip_app_build: true
+          skip_api_build: true
