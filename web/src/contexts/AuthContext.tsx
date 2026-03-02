@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../api.ts';
+import { api, clearAuthCache } from '../api.ts';
 import type { AuthUser } from '../types.ts';
 
 interface AuthContextValue {
@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    clearAuthCache();
     if (isDev) localStorage.removeItem('mockAuthPrincipal');
     const redirect = encodeURIComponent('/');
     window.location.href = isDev

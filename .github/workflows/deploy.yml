@@ -33,6 +33,8 @@ jobs:
       # --- Web ---
       - name: Install & build Web
         working-directory: web
+        env:
+          VITE_API_BASE: https://${{ vars.FUNCTION_APP_NAME }}.azurewebsites.net/api
         run: |
           npm ci
           npx vite build

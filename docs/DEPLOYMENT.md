@@ -81,6 +81,8 @@ Add these secrets to the GitHub repository:
 |----------|-------|
 | `FUNCTION_APP_NAME` | `func-evote-prod` |
 
+> **Note**: The deploy workflow automatically derives `VITE_API_BASE` from `FUNCTION_APP_NAME` during web build (`https://{FUNCTION_APP_NAME}.azurewebsites.net/api`). No separate variable needed.
+
 ### Workflows
 
 - **CI** (`.github/workflows/ci.yml`) — Runs on every push and PR: builds both projects, runs Functions tests, type-checks web.

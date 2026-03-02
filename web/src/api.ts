@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 const isDev = import.meta.env.DEV;
 
 class ApiError extends Error {
@@ -10,23 +10,51 @@ class ApiError extends Error {
   }
 }
 
-/** In dev mode, read mock auth from localStorage and send as x-ms-client-principal header */
-function getDevAuthHeaders(): Record<string, string> {
-  if (!isDev) return {};
-  const stored = localStorage.getItem('mockAuthPrincipal');
-  if (!stored) return {};
-  return { 'x-ms-client-principal': btoa(stored) };
+/**
+ * Get auth headers to forward to the Function App.
+ * - Dev: reads mock auth from localStorage
+ * - Prod: fetches SWA's /.auth/me and caches the base64-encoded client principal
+ *   (SWA Free tier doesn't have a linked backend, so we forward the header ourselves)
+ */
+let _cachedPrincipal: string | null = null;
+let _principalFetched = false;
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  if (isDev) {
+    const stored = localStorage.getItem('mockAuthPrincipal');
+    return stored ? { 'x-ms-client-principal': btoa(stored) } : {};
+  }
+
+  if (!_principalFetched) {
+    try {
+      const res = await fetch('/.auth/me');
+      const data = await res.json();
+      if (data.clientPrincipal) {
+        _cachedPrincipal = btoa(JSON.stringify(data.clientPrincipal));
+      }
+    } catch { /* not logged in or auth unavailable */ }
+    _principalFetched = true;
+  }
+
+  return _cachedPrincipal ? { 'x-ms-client-principal': _cachedPrincipal } : {};
+}
+
+/** Clear cached auth state (call on logout) */
+export function clearAuthCache() {
+  _cachedPrincipal = null;
+  _principalFetched = false;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const authHeaders = await getAuthHeaders();
   let res: Response;
   try {
     res = await fetch(url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...getDevAuthHeaders(),
+        ...authHeaders,
         ...options?.headers,
       },
     });
