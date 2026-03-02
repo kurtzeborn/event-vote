@@ -1,4 +1,10 @@
 {
+  "platform": {
+    "apiRuntime": "node:20"
+  },
+  "platform": {
+    "apiRuntime": "node:20"
+  },
   "routes": [
     {
       "route": "/.auth/login/aad",
