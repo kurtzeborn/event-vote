@@ -152,10 +152,7 @@ flowchart LR
     subgraph Azure["Azure &mdash; Resource Group: rg-event-vote"]
         subgraph SWA["Static Web Apps (Free)"]
             SPA["React SPA<br/>evote.k61.dev"]
-        end
-        
-        subgraph Functions["Azure Functions (Consumption)"]
-            API["API Endpoints<br/>• Event management<br/>• Vote submission<br/>• Results"]
+            API["Managed API<br/>(Azure Functions)<br/>• Event management<br/>• Vote submission<br/>• Results"]
         end
         
         subgraph Storage["Storage Account"]
@@ -166,19 +163,19 @@ flowchart LR
     end
     
     DNS --> SWA
-    SPA -->|"CORS<br/>direct API calls"| API
+    SPA -->|"same-origin /api/*"| API
     SWA -.->|"Auth"| EntraID
     API --> Tables
 ```
 
 **Architecture Notes:**
-- **SWA Free Tier** — Hosts the React SPA at no cost
+- **SWA Managed API** — Functions deployed within the SWA resource; SWA securely injects `x-ms-client-principal` for authenticated requests
+- **SWA Free Tier** — Hosts the React SPA + managed API at no cost
 - **Separate Resource Group** — `rg-event-vote` keeps all resources isolated from other projects
-- **CORS** — Functions app configured to accept requests from `https://evote.k61.dev`
-- **Auth** — SWA built-in auth handles Entra ID sign-in; auth token passed to Functions via fetch headers
+- **No CORS needed** — API calls are same-origin (`/api/*` routed internally)
+- **Auth** — SWA built-in auth handles Entra ID sign-in; managed API receives verified auth headers
 - **Cloudflare DNS** — CNAME pointing to SWA hostname (proxy disabled for SSL compatibility)
 - **No Blob Storage** — Text-only data, no media uploads needed
-- **No Linked Backend** — SPA calls Functions app directly (CORS), no `/api/*` proxy
 
 *Note: SignalR omitted — using polling for real-time updates instead.*
 
@@ -191,7 +188,7 @@ flowchart LR
 | Resource | Purpose | Pricing Model | Estimated Monthly Cost |
 |----------|---------|---------------|------------------------|
 | **Azure Static Web Apps (Free)** | Host React SPA | Free tier | $0.00 |
-| **Azure Functions (Consumption)** | API endpoints | Pay-per-execution | < $0.01 |
+| **SWA Managed API (Functions)** | API endpoints | Included in SWA Free tier | $0.00 |
 | **Azure Storage Account** | Table Storage for all data | $0.00036/10K transactions + $0.045/GB | < $0.01 |
 | **Entra ID** | Votekeeper authentication | Free (included with Azure) | $0.00 |
 | **Custom Domain** | Subdomain of existing domain | Already owned | $0.00 |
@@ -557,10 +554,7 @@ event-vote/
 │           ├── auth.ts
 │           └── validation.ts
 ├── infra/
-│   ├── main.bicep               # SWA (Free) + Functions + Storage Account
-│   ├── main.bicepparam          # Resource group: rg-event-vote
-│   ├── deploy.ps1
-│   └── deploy.sh
+│   └── main.bicep               # SWA (Free) + Storage Account
 ├── web/
 │   ├── index.html
 │   ├── package.json

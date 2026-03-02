@@ -7,7 +7,6 @@ dist/
 
 # Deploy artifacts
 functions/deploy/
-functions/deploy.zip
 
 # Azure Storage emulator
 .azurite/

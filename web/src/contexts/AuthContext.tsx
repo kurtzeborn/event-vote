@@ -26,17 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = () => {
     const redirect = encodeURIComponent('/dashboard');
-    window.location.href = isDev
-      ? `/.auth/login/aad?post_login_redirect_uri=${redirect}`
-      : '/.auth/login/aad';
+    window.location.href = `/.auth/login/aad?post_login_redirect_uri=${redirect}`;
   };
 
   const logout = () => {
     if (isDev) localStorage.removeItem('mockAuthPrincipal');
     const redirect = encodeURIComponent('/');
-    window.location.href = isDev
-      ? `/.auth/logout?post_logout_redirect_uri=${redirect}`
-      : '/.auth/logout';
+    window.location.href = `/.auth/logout?post_logout_redirect_uri=${redirect}`;
   };
 
   const value: AuthContextValue = {
