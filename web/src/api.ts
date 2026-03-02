@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+const API_BASE = '/api';
 const isDev = import.meta.env.DEV;
 
 class ApiError extends Error {
@@ -11,43 +11,21 @@ class ApiError extends Error {
 }
 
 /**
- * Get auth headers to forward to the Function App.
- * - Dev: reads mock auth from localStorage
- * - Prod: fetches SWA's /.auth/me and caches the base64-encoded client principal
- *   (SWA Free tier doesn't have a linked backend, so we forward the header ourselves)
+ * Get auth headers for dev mode mock auth.
+ * In production, SWA automatically injects x-ms-client-principal
+ * for managed API functions — no manual forwarding needed.
  */
-let _cachedPrincipal: string | null = null;
-let _principalFetched = false;
-
-async function getAuthHeaders(): Promise<Record<string, string>> {
+function getAuthHeaders(): Record<string, string> {
   if (isDev) {
     const stored = localStorage.getItem('mockAuthPrincipal');
     return stored ? { 'x-ms-client-principal': btoa(stored) } : {};
   }
-
-  if (!_principalFetched) {
-    try {
-      const res = await fetch('/.auth/me');
-      const data = await res.json();
-      if (data.clientPrincipal) {
-        _cachedPrincipal = btoa(JSON.stringify(data.clientPrincipal));
-      }
-    } catch { /* not logged in or auth unavailable */ }
-    _principalFetched = true;
-  }
-
-  return _cachedPrincipal ? { 'x-ms-client-principal': _cachedPrincipal } : {};
-}
-
-/** Clear cached auth state (call on logout) */
-export function clearAuthCache() {
-  _cachedPrincipal = null;
-  _principalFetched = false;
+  return {};
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
-  const authHeaders = await getAuthHeaders();
+  const authHeaders = getAuthHeaders();
   let res: Response;
   try {
     res = await fetch(url, {

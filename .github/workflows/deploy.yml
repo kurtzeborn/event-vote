@@ -33,14 +33,12 @@ jobs:
       # --- Web ---
       - name: Install & build Web
         working-directory: web
-        env:
-          VITE_API_BASE: https://${{ vars.FUNCTION_APP_NAME }}.azurewebsites.net/api
         run: |
           npm ci
           npx vite build
           cp ../staticwebapp.config.json dist/staticwebapp.config.json
 
-      # --- Deploy SWA ---
+      # --- Deploy SWA (frontend + managed API) ---
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
@@ -48,30 +46,5 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: web/dist
+          api_location: functions
           skip_app_build: true
-          skip_api_build: true
-
-      # --- Deploy Functions ---
-      - name: Prepare Functions package
-        working-directory: functions
-        run: |
-          npm ci --omit=dev
-          mkdir -p deploy/dist
-          cp -r dist/* deploy/dist/
-          cp host.json deploy/
-          cp package.json deploy/
-          cp -r node_modules/ deploy/node_modules/
-          cd deploy && zip -r ../deploy.zip .
-
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Deploy Azure Functions
-        run: |
-          az functionapp deployment source config-zip \
-            --resource-group rg-event-vote \
-            --name ${{ vars.FUNCTION_APP_NAME }} \
-            --src functions/deploy.zip \
-            --timeout 120
