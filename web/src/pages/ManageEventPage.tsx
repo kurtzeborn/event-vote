@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
@@ -418,6 +418,7 @@ function OptionsSection({
 }) {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const titleRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -435,6 +436,8 @@ function OptionsSection({
       setNewTitle('');
       setNewDesc('');
       invalidate();
+      // Re-focus title input for next option
+      setTimeout(() => titleRef.current?.focus(), 0);
     },
   });
 
@@ -588,41 +591,38 @@ function OptionsSection({
 
       {/* Add option form */}
       {canEdit && (
-        <div className="border-t border-gray-200 pt-4">
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Option title"
-                maxLength={200}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newTitle.trim()) {
-                    e.preventDefault();
-                    addMutation.mutate();
-                  }
-                }}
-              />
-            </div>
-            <button
-              onClick={() => addMutation.mutate()}
-              disabled={!newTitle.trim() || addMutation.isPending}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition-colors"
-            >
-              Add
-            </button>
-          </div>
+        <form
+          className="border-t border-gray-200 pt-4 space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (newTitle.trim()) addMutation.mutate();
+          }}
+        >
+          <input
+            ref={titleRef}
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Option title"
+            maxLength={200}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none text-sm"
+          />
           <input
             type="text"
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
             placeholder="Optional description"
             maxLength={500}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-2 focus:border-indigo-500 focus:outline-none text-sm"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none text-sm"
           />
-        </div>
+          <button
+            type="submit"
+            disabled={!newTitle.trim() || addMutation.isPending}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition-colors"
+          >
+            Add
+          </button>
+        </form>
       )}
     </section>
   );
