@@ -61,7 +61,9 @@ export default function ResultsPage() {
   const sorted = [...results.results].sort((a, b) => a.rank - b.rank);
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-900 p-4 md:p-8 relative">
+      {/* Themed accent gradient at top */}
+      <div className={`absolute inset-x-0 top-0 h-1 ${t.accentBgDark}`} />
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -104,7 +106,7 @@ export default function ResultsPage() {
         {/* Wait for more reveals */}
         {isRevealing && results.revealedCount < results.totalOptions && (
           <div className="text-center mt-8">
-            <div className="text-white/50 text-sm animate-pulse">Waiting for next reveal...</div>
+            <div className={`text-white/50 text-sm animate-pulse ${t.accentTextDark}`}>Waiting for next reveal...</div>
           </div>
         )}
 
@@ -121,7 +123,7 @@ export default function ResultsPage() {
               >
                 📄 Download PDF Report
               </a>
-              <Link to="/" className="text-gray-400 hover:text-gray-300 text-sm">← Back to Home</Link>
+              <Link to="/" className={`${t.accentTextDark} hover:text-gray-300 text-sm`}>← Back to Home</Link>
             </div>
           </>
         )}

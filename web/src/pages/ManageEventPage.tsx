@@ -8,6 +8,7 @@ import type { VoteEvent } from '../types.ts';
 import { MEDAL, STATUS_LABELS, getRankBarColor } from '../constants.ts';
 import WinnerBanner from '../components/WinnerBanner.tsx';
 import ThemePicker from '../components/ThemePicker.tsx';
+import { getTheme } from '../themes.ts';
 
 export default function ManageEventPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -79,6 +80,7 @@ export default function ManageEventPage() {
 
   const voterUrl = `${window.location.origin}/join/${event.id}`;
   const resultsUrl = `${window.location.origin}/results/${event.id}`;
+  const t = getTheme(event.config.theme);
 
   // Show projector-friendly reveal view for revealing/complete statuses
   if (event.status === 'revealing' || event.status === 'complete') {
@@ -108,7 +110,7 @@ export default function ManageEventPage() {
                 <span className="text-sm font-mono text-gray-400">Code: {event.id}</span>
                 <button
                   onClick={() => setShowQR(true)}
-                  className="p-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded transition-colors"
+                  className={`p-1 bg-indigo-50 hover:bg-indigo-100 ${t.accentText.split(' ')[0]} rounded transition-colors`}
                   title="Show QR Code"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="2" width="8" height="8" rx="1" /><rect x="2" y="14" width="8" height="8" rx="1" /><rect x="14" y="14" width="4" height="4" /><line x1="22" y1="14" x2="22" y2="14.01" /><line x1="22" y1="22" x2="22" y2="22.01" /><line x1="18" y1="22" x2="18" y2="22.01" /><line x1="22" y1="18" x2="22" y2="18.01" /></svg>
@@ -174,7 +176,7 @@ export default function ManageEventPage() {
             </div>
             <p className="text-gray-500 text-xs mt-4 break-all">{voterUrl}</p>
             <div className="mt-3 space-y-1 text-xs text-gray-400">
-              <p>Results: <a href={resultsUrl} className="text-indigo-500 hover:underline">{resultsUrl}</a></p>
+              <p>Results: <a href={resultsUrl} className={`${t.accentText.split(' ')[0]} hover:underline`}>{resultsUrl}</a></p>
             </div>
             <button
               onClick={() => setShowQR(false)}
@@ -194,18 +196,18 @@ export default function ManageEventPage() {
               <h2 className="text-lg font-semibold text-gray-900">Live Stats</h2>
               <button
                 onClick={() => setShowPerOption((v) => !v)}
-                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                className={`text-sm ${t.accentText} font-medium transition-colors`}
               >
                 {showPerOption ? 'Hide' : 'Show'} Per-Option
               </button>
             </div>
             <div className="flex gap-8">
               <div>
-                <div className="text-3xl font-bold text-indigo-600">{voteCounts.data.totalVoters}</div>
+                <div className={`text-3xl font-bold ${t.accentText.split(' ')[0]}`}>{voteCounts.data.totalVoters}</div>
                 <div className="text-sm text-gray-500">Voters</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-indigo-600">{voteCounts.data.totalVotes}</div>
+                <div className={`text-3xl font-bold ${t.accentText.split(' ')[0]}`}>{voteCounts.data.totalVotes}</div>
                 <div className="text-sm text-gray-500">Total Votes</div>
               </div>
             </div>
@@ -214,7 +216,7 @@ export default function ManageEventPage() {
                 {event.options.map((opt) => (
                   <div key={opt.id} className="flex items-center justify-between text-sm">
                     <span className="text-gray-700">{opt.title}</span>
-                    <span className="font-semibold text-indigo-600">{voteCounts.data!.perOption[opt.id] ?? 0} votes</span>
+                    <span className={`font-semibold ${t.accentText.split(' ')[0]}`}>{voteCounts.data!.perOption[opt.id] ?? 0} votes</span>
                   </div>
                 ))}
               </div>
@@ -290,6 +292,7 @@ function RevealView({
   const sorted = results?.results ? [...results.results].sort((a, b) => a.rank - b.rank) : [];
   const maxVotes = Math.max(...(sorted.map((r) => r.totalVotes) || [0]), 1);
   const winner = isComplete ? sorted.find((r) => r.rank === 1) : null;
+  const t = getTheme(event.config.theme);
 
   return (
     <div className="min-h-screen bg-gray-900 p-6 md:p-10 flex flex-col">
@@ -306,7 +309,7 @@ function RevealView({
             <button
               onClick={() => revealMutation.mutate()}
               disabled={revealMutation.isPending}
-              className="bg-purple-600 text-white px-6 py-3 rounded-xl hover:bg-purple-700 disabled:opacity-50 font-bold text-lg transition-colors shadow-lg shadow-purple-600/30"
+              className={`${t.revealButton} text-white px-6 py-3 rounded-xl disabled:opacity-50 font-bold text-lg transition-colors`}
             >
               {revealMutation.isPending ? 'Revealing...' : '🎭 Reveal Next'}
             </button>
@@ -315,7 +318,7 @@ function RevealView({
             <button
               onClick={() => completeMutation.mutate()}
               disabled={completeMutation.isPending}
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 font-bold text-lg transition-colors shadow-lg shadow-blue-600/30"
+              className={`${t.revealButton} text-white px-6 py-3 rounded-xl disabled:opacity-50 font-bold text-lg transition-colors`}
             >
               {completeMutation.isPending ? 'Completing...' : '✓ Complete Event'}
             </button>
@@ -326,7 +329,7 @@ function RevealView({
                 href={api.getPdfUrl(event.id)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 font-medium transition-colors"
+                className={`${t.buttonPrimary} text-white px-5 py-2.5 rounded-xl font-medium transition-colors`}
               >
                 📄 PDF
               </a>
@@ -345,7 +348,7 @@ function RevealView({
       {!isComplete && (
         <div className="w-full bg-white/10 rounded-full h-2 mb-8 overflow-hidden">
           <div
-            className="h-full bg-purple-500 rounded-full transition-all duration-700"
+            className={`h-full ${t.accentBgDark} rounded-full transition-all duration-700`}
             style={{ width: `${(revealedCount / Math.max(totalOptions, 1)) * 100}%` }}
           />
         </div>
@@ -441,6 +444,7 @@ function OptionsSection({
 
   const canEdit = event.status === 'setup' || event.status === 'open';
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['event', event.id] });
+  const t = getTheme(event.config.theme);
 
   const addMutation = useMutation({
     mutationFn: () =>
@@ -539,7 +543,7 @@ function OptionsSection({
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   maxLength={200}
-                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                  className={`w-full border border-gray-300 rounded px-2 py-1 text-sm ${t.focusBorder} focus:outline-none`}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') saveEdit(option.id);
@@ -552,7 +556,7 @@ function OptionsSection({
                   onChange={(e) => setEditDesc(e.target.value)}
                   maxLength={500}
                   placeholder="Description (optional)"
-                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none"
+                  className={`w-full border border-gray-300 rounded px-2 py-1 text-sm ${t.focusBorder} focus:outline-none`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') saveEdit(option.id);
                     if (e.key === 'Escape') setEditingId(null);
@@ -562,7 +566,7 @@ function OptionsSection({
                   <button
                     onClick={() => saveEdit(option.id)}
                     disabled={!editTitle.trim() || updateMutation.isPending}
-                    className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                    className={`${t.accentText} text-sm font-medium`}
                   >Save</button>
                   <button
                     onClick={() => setEditingId(null)}
@@ -584,7 +588,7 @@ function OptionsSection({
                   <div className="flex gap-2">
                     <button
                       onClick={() => startEdit(option)}
-                      className="text-gray-400 hover:text-indigo-600 text-sm"
+                      className={`text-gray-400 hover:${t.accentText.split(' ')[0]} text-sm`}
                     >Edit</button>
                     <button
                       onClick={() => {
@@ -621,7 +625,7 @@ function OptionsSection({
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="Option title"
             maxLength={200}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none text-sm"
+            className={`w-full border border-gray-300 rounded-lg px-3 py-2 ${t.focusBorder} focus:outline-none text-sm`}
           />
           <input
             type="text"
@@ -629,12 +633,12 @@ function OptionsSection({
             onChange={(e) => setNewDesc(e.target.value)}
             placeholder="Optional description"
             maxLength={500}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none text-sm"
+            className={`w-full border border-gray-300 rounded-lg px-3 py-2 ${t.focusBorder} focus:outline-none text-sm`}
           />
           <button
             type="submit"
             disabled={!newTitle.trim() || addMutation.isPending}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition-colors"
+            className={`${t.buttonPrimary} text-white px-4 py-2 rounded-lg disabled:opacity-50 text-sm font-medium transition-colors`}
           >
             Add
           </button>

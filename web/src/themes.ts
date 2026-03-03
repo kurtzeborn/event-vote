@@ -9,7 +9,7 @@ export interface Theme {
   buttonPrimary: string;
   /** Light tinted badge/chip background */
   badgeLight: string;
-  /** Accent text color */
+  /** Accent text color (light bg) */
   accentText: string;
   /** + button on voter cards */
   votePlus: string;
@@ -19,6 +19,14 @@ export interface Theme {
   nameBar: string;
   /** Preview swatch gradient for theme picker */
   swatch: string;
+  /** Accent text on dark backgrounds */
+  accentTextDark: string;
+  /** Solid accent fill on dark backgrounds (progress bars) */
+  accentBgDark: string;
+  /** Reveal button on projector view */
+  revealButton: string;
+  /** Progress bar glow shadow */
+  revealShadow: string;
 }
 
 export const THEMES: Record<string, Theme> = {
@@ -33,6 +41,10 @@ export const THEMES: Record<string, Theme> = {
     focusBorder: 'focus:border-indigo-500',
     nameBar: 'bg-white/20',
     swatch: 'bg-gradient-to-br from-indigo-500 to-purple-600',
+    accentTextDark: 'text-indigo-400',
+    accentBgDark: 'bg-indigo-500',
+    revealButton: 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/30',
+    revealShadow: 'shadow-indigo-600/30',
   },
   emerald: {
     id: 'emerald',
@@ -45,6 +57,10 @@ export const THEMES: Record<string, Theme> = {
     focusBorder: 'focus:border-emerald-500',
     nameBar: 'bg-white/20',
     swatch: 'bg-gradient-to-br from-emerald-500 to-teal-600',
+    accentTextDark: 'text-emerald-400',
+    accentBgDark: 'bg-emerald-500',
+    revealButton: 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/30',
+    revealShadow: 'shadow-emerald-600/30',
   },
   rose: {
     id: 'rose',
@@ -57,6 +73,10 @@ export const THEMES: Record<string, Theme> = {
     focusBorder: 'focus:border-rose-500',
     nameBar: 'bg-white/20',
     swatch: 'bg-gradient-to-br from-rose-500 to-pink-600',
+    accentTextDark: 'text-rose-400',
+    accentBgDark: 'bg-rose-500',
+    revealButton: 'bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/30',
+    revealShadow: 'shadow-rose-600/30',
   },
   amber: {
     id: 'amber',
@@ -69,6 +89,10 @@ export const THEMES: Record<string, Theme> = {
     focusBorder: 'focus:border-amber-500',
     nameBar: 'bg-white/20',
     swatch: 'bg-gradient-to-br from-amber-500 to-orange-600',
+    accentTextDark: 'text-amber-400',
+    accentBgDark: 'bg-amber-500',
+    revealButton: 'bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-600/30',
+    revealShadow: 'shadow-amber-600/30',
   },
 };
 
