@@ -90,3 +90,12 @@ export interface EventPublicResponse {
     theme?: string;
   };
 }
+
+export interface VotekeeperWithStats {
+  userId: string;
+  displayName: string;
+  addedAt: string;
+  addedBy: string;
+  completedEvents: number;
+  activeEvents: number;
+}

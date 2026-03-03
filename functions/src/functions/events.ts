@@ -37,7 +37,7 @@ async function createEvent(request: HttpRequest, context: InvocationContext): Pr
       partitionKey: 'event',
       rowKey: eventId,
       name: body.name.trim(),
-      createdBy: user.userId,
+      createdBy: user.userDetails.toLowerCase(),
       createdAt: now,
       status: 'setup',
       config: JSON.stringify(config),
@@ -64,7 +64,7 @@ async function listEvents(request: HttpRequest, context: InvocationContext): Pro
     const events: VoteEvent[] = [];
     const entities = eventsTable.listEntities<EventEntity>({
       queryOptions: {
-        filter: `PartitionKey eq 'event' and createdBy eq '${user.userId}'`,
+        filter: `PartitionKey eq 'event' and createdBy eq '${user.userDetails.toLowerCase()}'`,
       },
     });
 
@@ -88,7 +88,7 @@ async function getEvent(request: HttpRequest, context: InvocationContext): Promi
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
 
     const event = entityToEvent(result);
@@ -116,7 +116,7 @@ async function updateEvent(request: HttpRequest, context: InvocationContext): Pr
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
     const entity = result;
 
@@ -162,7 +162,7 @@ async function deleteEvent(request: HttpRequest, context: InvocationContext): Pr
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
 
     // Delete all voting options
@@ -197,7 +197,7 @@ async function openVoting(request: HttpRequest, context: InvocationContext): Pro
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
     const entity = result;
 
@@ -235,7 +235,7 @@ async function closeVoting(request: HttpRequest, context: InvocationContext): Pr
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
     const entity = result;
 
@@ -260,7 +260,7 @@ async function reveal(request: HttpRequest, context: InvocationContext): Promise
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
     const entity = result;
 
@@ -310,7 +310,7 @@ async function completeEvent(request: HttpRequest, context: InvocationContext): 
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
     const entity = result;
 

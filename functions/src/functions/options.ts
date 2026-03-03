@@ -12,7 +12,7 @@ async function addOption(request: HttpRequest, context: InvocationContext): Prom
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
     const event = result;
 
@@ -87,7 +87,7 @@ async function updateOption(request: HttpRequest, context: InvocationContext): P
     const eventId = request.params.eventId;
     const optionId = request.params.optionId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
     const event = result;
 
@@ -137,7 +137,7 @@ async function deleteOption(request: HttpRequest, context: InvocationContext): P
     const eventId = request.params.eventId;
     const optionId = request.params.optionId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
     const event = result;
 
@@ -168,7 +168,7 @@ async function reorderOptions(request: HttpRequest, context: InvocationContext):
     const user = await requireVotekeeper(request);
     const eventId = request.params.eventId;
 
-    const result = await getOwnedEventEntity(eventId, user.userId);
+    const result = await getOwnedEventEntity(eventId, user.userDetails.toLowerCase());
     if (isErrorResponse(result)) return result;
     const event = result;
 

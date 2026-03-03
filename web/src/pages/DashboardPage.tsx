@@ -48,20 +48,26 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Welcome!</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Required</h1>
+          <p className="text-gray-600 mb-2">
+            You're signed in as:
+          </p>
+          <p className="font-mono text-indigo-600 font-semibold mb-4 break-all">
+            {user?.userDetails || 'Unknown'}
+          </p>
           <p className="text-gray-600 mb-6">
-            You're signed in but don't have votekeeper access yet.
+            You don't have votekeeper access yet. Ask an existing votekeeper to invite your email address.
           </p>
           <button
             onClick={() => seedMutation.mutate()}
             disabled={seedMutation.isPending}
-            className="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            className="bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-xl hover:bg-gray-300 transition-colors disabled:opacity-50 text-sm"
           >
-            {seedMutation.isPending ? 'Setting up...' : 'Become First Votekeeper'}
+            {seedMutation.isPending ? 'Setting up...' : 'Or become first votekeeper'}
           </button>
           {seedMutation.isError && (
             <p className="text-red-500 text-sm mt-3">
-              {seedMutation.error?.message || 'Failed. Votekeepers may already exist.'}
+              {seedMutation.error?.message || 'Votekeepers already exist. Ask to be invited.'}
             </p>
           )}
           {seedMutation.isSuccess && (
@@ -69,6 +75,12 @@ export default function DashboardPage() {
               You're now a votekeeper! Refreshing...
             </p>
           )}
+          <button
+            onClick={logout}
+            className="mt-4 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     );
@@ -86,6 +98,12 @@ export default function DashboardPage() {
             {user && (
               <span className="text-sm text-gray-500 hidden sm:inline">{user.userDetails}</span>
             )}
+            <Link
+              to="/votekeepers"
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Votekeepers
+            </Link>
             <Link
               to="/create"
               className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors text-sm"

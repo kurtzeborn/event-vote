@@ -5,6 +5,7 @@ import CreateEventPage from './pages/CreateEventPage.tsx';
 import ManageEventPage from './pages/ManageEventPage.tsx';
 import VoterPage from './pages/VoterPage.tsx';
 import ResultsPage from './pages/ResultsPage.tsx';
+import VotekeepersPage from './pages/VotekeepersPage.tsx';
 import NotFoundPage from './pages/NotFoundPage.tsx';
 import { MockAuthPage, MockLogoutPage } from './pages/MockAuthPage.tsx';
 
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/create" element={<CreateEventPage />} />
         <Route path="/manage/:eventId" element={<ManageEventPage />} />
+        <Route path="/votekeepers" element={<VotekeepersPage />} />
 
         {/* Catch-all */}
         <Route path="*" element={<NotFoundPage />} />

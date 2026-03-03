@@ -142,6 +142,15 @@ export const api = {
   // Votekeepers
   seedVotekeeper: () =>
     request<{ userId: string; displayName: string }>('/votekeepers/seed', { method: 'POST' }),
+  listVotekeepers: () =>
+    request<import('./types.ts').VotekeeperWithStats[]>('/votekeepers'),
+  addVotekeeper: (data: { userId: string; displayName: string }) =>
+    request<{ userId: string; displayName: string }>('/votekeepers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  removeVotekeeper: (userId: string) =>
+    request<void>(`/votekeepers/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
 };
 
 export { ApiError };

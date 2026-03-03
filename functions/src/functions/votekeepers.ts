@@ -1,7 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { requireVotekeeper } from '../auth.js';
-import { votekeepersTable } from '../storage.js';
-import { VotekeeperEntity, Votekeeper } from '../types.js';
+import { eventsTable, votekeepersTable } from '../storage.js';
+import { EventEntity, VotekeeperEntity, Votekeeper } from '../types.js';
 import { ensureTables, handleError } from '../utils.js';
 
 function entityToVotekeeper(entity: VotekeeperEntity): Votekeeper {
@@ -13,12 +13,13 @@ function entityToVotekeeper(entity: VotekeeperEntity): Votekeeper {
   };
 }
 
-// GET /api/votekeepers - List all votekeepers
+// GET /api/votekeepers - List all votekeepers with event stats
 async function listVotekeepers(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   try {
     await ensureTables();
     await requireVotekeeper(request);
 
+    // Fetch all votekeepers
     const votekeepers: Votekeeper[] = [];
     const entities = votekeepersTable.listEntities<VotekeeperEntity>({
       queryOptions: { filter: `PartitionKey eq 'votekeeper'` },
@@ -27,7 +28,29 @@ async function listVotekeepers(request: HttpRequest, context: InvocationContext)
       votekeepers.push(entityToVotekeeper(entity));
     }
 
-    return { jsonBody: votekeepers };
+    // Fetch all events to count per votekeeper
+    const eventCounts = new Map<string, { completed: number; other: number }>();
+    const allEvents = eventsTable.listEntities<EventEntity>({
+      queryOptions: { filter: `PartitionKey eq 'event'` },
+    });
+    for await (const ev of allEvents) {
+      const owner = ev.createdBy;
+      if (!eventCounts.has(owner)) eventCounts.set(owner, { completed: 0, other: 0 });
+      const counts = eventCounts.get(owner)!;
+      if (ev.status === 'complete') {
+        counts.completed++;
+      } else {
+        counts.other++;
+      }
+    }
+
+    // Enrich votekeepers with event stats
+    const enriched = votekeepers.map((vk) => {
+      const stats = eventCounts.get(vk.userId) || { completed: 0, other: 0 };
+      return { ...vk, completedEvents: stats.completed, activeEvents: stats.other };
+    });
+
+    return { jsonBody: enriched };
   } catch (error) {
     return handleError(error);
   }
@@ -49,7 +72,7 @@ async function addVotekeeper(request: HttpRequest, context: InvocationContext): 
       rowKey: body.userId,
       displayName: body.displayName.trim(),
       addedAt: new Date().toISOString(),
-      addedBy: user.userId,
+      addedBy: user.userDetails.toLowerCase(),
     };
 
     try {
@@ -74,7 +97,7 @@ async function removeVotekeeper(request: HttpRequest, context: InvocationContext
     const user = await requireVotekeeper(request);
     const userId = request.params.userId;
 
-    if (userId === user.userId) {
+    if (userId === user.userDetails.toLowerCase()) {
       return { status: 400, jsonBody: { error: 'Cannot remove yourself as a votekeeper' } };
     }
 
