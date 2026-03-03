@@ -81,6 +81,9 @@ jobs:
           cd functions && npm ci
           cd ../web && npm ci
 
+      - name: Create local.settings.json
+        run: cp functions/local.settings.json.template functions/local.settings.json
+
       - name: Build Functions
         working-directory: functions
         run: npm run build
