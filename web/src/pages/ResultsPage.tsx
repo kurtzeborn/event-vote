@@ -54,7 +54,7 @@ export default function ResultsPage() {
   const isRevealing = results.status === 'revealing';
   const isComplete = results.status === 'complete';
   const maxVotes = Math.max(...results.results.map((r) => r.totalVotes), 1);
-  const winner = isComplete ? results.results.find((r) => r.rank === 1) : null;
+  const winners = isComplete ? results.results.filter((r) => r.rank === 1) : [];
   const t = getTheme(results.theme);
 
   // Sort: best rank first (top → bottom)
@@ -89,7 +89,7 @@ export default function ResultsPage() {
         </div>
 
         {/* Winner celebration */}
-        {isComplete && winner && <WinnerBanner winner={winner} />}
+        {isComplete && winners.length > 0 && <WinnerBanner winners={winners} />}
         {/* Results list */}
         <div className="space-y-3">
           {sorted.map((result, index) => (

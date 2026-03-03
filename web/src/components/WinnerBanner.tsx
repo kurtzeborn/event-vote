@@ -2,14 +2,20 @@ import { useState, useEffect } from 'react';
 import type { OptionResult } from '../types.ts';
 
 interface WinnerBannerProps {
-  winner: OptionResult;
+  winners: OptionResult[];
   /** Larger variant for projector/reveal views */
   large?: boolean;
 }
 
-export default function WinnerBanner({ winner, large = false }: WinnerBannerProps) {
+export default function WinnerBanner({ winners, large = false }: WinnerBannerProps) {
   const [show, setShow] = useState(false);
   useEffect(() => { setShow(true); }, []);
+
+  if (winners.length === 0) return null;
+
+  const isTie = winners.length > 1;
+  const votes = winners[0].totalVotes;
+  const voters = winners[0].uniqueVoters;
 
   return (
     <div
@@ -20,12 +26,30 @@ export default function WinnerBanner({ winner, large = false }: WinnerBannerProp
       {/* Glow background */}
       <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/30 via-amber-400/20 to-yellow-500/30 animate-pulse" />
       <div className={`relative text-center ${large ? 'py-8' : 'py-8'} px-4`}>
-        <div className={large ? 'text-6xl mb-3' : 'text-5xl mb-2'}>🏆</div>
-        <h2 className={`font-bold text-yellow-300 mb-1 ${large ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'}`}>
-          {winner.title}
-        </h2>
+        <div className={large ? 'text-6xl mb-3' : 'text-5xl mb-2'}>{isTie ? '🤝' : '🏆'}</div>
+        {isTie ? (
+          <>
+            <h2 className={`font-bold text-yellow-300 mb-2 ${large ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'}`}>
+              It&rsquo;s a Tie!
+            </h2>
+            <div className={`flex flex-wrap justify-center gap-2 mb-2 ${large ? 'text-xl' : 'text-lg'}`}>
+              {winners.map((w, i) => (
+                <span key={w.optionId} className="text-yellow-200 font-semibold">
+                  {w.title}{i < winners.length - 1 ? <span className="text-yellow-100/50 mx-1">&amp;</span> : ''}
+                </span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <h2 className={`font-bold text-yellow-300 mb-1 ${large ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'}`}>
+            {winners[0].title}
+          </h2>
+        )}
         <p className="text-yellow-100/80 text-sm">
-          {large ? '' : 'Winner with '}{winner.totalVotes} vote{winner.totalVotes !== 1 ? 's' : ''} from {winner.uniqueVoters} voter{winner.uniqueVoters !== 1 ? 's' : ''}
+          {isTie
+            ? `Tied with ${votes} vote${votes !== 1 ? 's' : ''} each from ${voters} voter${voters !== 1 ? 's' : ''}`
+            : `${large ? '' : 'Winner with '}${votes} vote${votes !== 1 ? 's' : ''} from ${voters} voter${voters !== 1 ? 's' : ''}`
+          }
         </p>
         {/* Decorative sparkles */}
         <div className={`absolute top-2 left-4 ${large ? 'text-2xl' : 'text-xl'} animate-bounce`} style={{ animationDelay: '0ms' }}>✨</div>

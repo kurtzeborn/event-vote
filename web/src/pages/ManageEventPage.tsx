@@ -264,7 +264,7 @@ function RevealView({
 
   const sorted = results?.results ? [...results.results].sort((a, b) => a.rank - b.rank) : [];
   const maxVotes = Math.max(...(sorted.map((r) => r.totalVotes) || [0]), 1);
-  const winner = isComplete ? sorted.find((r) => r.rank === 1) : null;
+  const winners = isComplete ? sorted.filter((r) => r.rank === 1) : [];
   const t = getTheme(event.config.theme);
 
   return (
@@ -328,7 +328,7 @@ function RevealView({
       )}
 
       {/* Winner banner */}
-      {winner && <WinnerBanner winner={winner} large />}
+      {winners.length > 0 && <WinnerBanner winners={winners} large />}
 
       {/* Results list */}
       <div className="space-y-3 flex-1">
