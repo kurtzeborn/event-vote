@@ -27,6 +27,10 @@ export interface Theme {
   revealButton: string;
   /** Progress bar glow shadow */
   revealShadow: string;
+  /** Header bar background (manage view) */
+  headerBg: string;
+  /** Page background tint (manage view) */
+  pageBg: string;
 }
 
 export const THEMES: Record<string, Theme> = {
@@ -45,6 +49,8 @@ export const THEMES: Record<string, Theme> = {
     accentBgDark: 'bg-indigo-500',
     revealButton: 'bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/30',
     revealShadow: 'shadow-indigo-600/30',
+    headerBg: 'bg-indigo-600',
+    pageBg: 'bg-indigo-50',
   },
   emerald: {
     id: 'emerald',
@@ -61,6 +67,8 @@ export const THEMES: Record<string, Theme> = {
     accentBgDark: 'bg-emerald-500',
     revealButton: 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/30',
     revealShadow: 'shadow-emerald-600/30',
+    headerBg: 'bg-emerald-600',
+    pageBg: 'bg-emerald-50',
   },
   rose: {
     id: 'rose',
@@ -77,6 +85,8 @@ export const THEMES: Record<string, Theme> = {
     accentBgDark: 'bg-rose-500',
     revealButton: 'bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/30',
     revealShadow: 'shadow-rose-600/30',
+    headerBg: 'bg-rose-600',
+    pageBg: 'bg-rose-50',
   },
   amber: {
     id: 'amber',
@@ -93,6 +103,8 @@ export const THEMES: Record<string, Theme> = {
     accentBgDark: 'bg-amber-500',
     revealButton: 'bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-600/30',
     revealShadow: 'shadow-amber-600/30',
+    headerBg: 'bg-amber-600',
+    pageBg: 'bg-amber-50',
   },
 };
 

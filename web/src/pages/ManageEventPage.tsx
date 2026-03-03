@@ -96,41 +96,41 @@ export default function ManageEventPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${t.pageBg}`}>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className={`${t.headerBg} shadow-sm`}>
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="text-gray-400 hover:text-gray-600">
+            <Link to="/dashboard" className="text-white/70 hover:text-white">
               ← Back
             </Link>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-mono text-gray-400">Code: {event.id}</span>
-                <button
-                  onClick={() => setShowQR(true)}
-                  className={`p-1 bg-indigo-50 hover:bg-indigo-100 ${t.accentText.split(' ')[0]} rounded transition-colors`}
-                  title="Show QR Code"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="2" width="8" height="8" rx="1" /><rect x="2" y="14" width="8" height="8" rx="1" /><rect x="14" y="14" width="4" height="4" /><line x1="22" y1="14" x2="22" y2="14.01" /><line x1="22" y1="22" x2="22" y2="22.01" /><line x1="18" y1="22" x2="18" y2="22.01" /><line x1="22" y1="18" x2="22" y2="18.01" /></svg>
-                </button>
-              </div>
-            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <h1 className="text-2xl md:text-3xl font-bold text-white text-center flex-1 mx-4 truncate">{event.name}</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-mono text-white/70">{event.id}</span>
+            <button
+              onClick={() => setShowQR(true)}
+              className="p-1 bg-white/20 hover:bg-white/30 text-white rounded transition-colors"
+              title="Show QR Code"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="8" height="8" rx="1" /><rect x="14" y="2" width="8" height="8" rx="1" /><rect x="2" y="14" width="8" height="8" rx="1" /><rect x="14" y="14" width="4" height="4" /><line x1="22" y1="14" x2="22" y2="14.01" /><line x1="22" y1="22" x2="22" y2="22.01" /><line x1="18" y1="22" x2="18" y2="22.01" /><line x1="22" y1="18" x2="22" y2="18.01" /></svg>
+            </button>
+          </div>
+        </div>
+        {/* Action bar */}
+        <div className="max-w-4xl mx-auto px-4 pb-3 flex items-center justify-center gap-3">
             {event.status === 'setup' && (
               <>
                 <button
                   onClick={() => openMutation.mutate()}
                   disabled={openMutation.isPending || (event.options?.length ?? 0) === 0}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-sm transition-colors"
+                  className="bg-white text-green-700 px-4 py-2 rounded-lg hover:bg-white/90 disabled:opacity-50 font-medium text-sm transition-colors"
                 >
                   {openMutation.isPending ? 'Opening...' : '▶ Open Voting'}
                 </button>
                 <button
                   onClick={() => { if (confirm('Delete this event?')) deleteMutation.mutate(); }}
-                  className="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 font-medium text-sm transition-colors"
+                  className="bg-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/30 font-medium text-sm transition-colors"
                 >
                   Delete
                 </button>
@@ -144,7 +144,7 @@ export default function ManageEventPage() {
                   }
                 }}
                 disabled={closeMutation.isPending}
-                className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 disabled:opacity-50 font-medium text-sm transition-colors"
+                className="bg-white text-yellow-700 px-4 py-2 rounded-lg hover:bg-white/90 disabled:opacity-50 font-medium text-sm transition-colors"
               >
                 {closeMutation.isPending ? 'Closing...' : '⏸ Close Voting'}
               </button>
@@ -153,13 +153,12 @@ export default function ManageEventPage() {
               <button
                 onClick={() => revealMutation.mutate()}
                 disabled={revealMutation.isPending}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 font-medium text-sm transition-colors"
+                className="bg-white/20 text-white px-4 py-2 rounded-lg hover:bg-white/30 disabled:opacity-50 font-medium text-sm transition-colors"
               >
                 {revealMutation.isPending ? 'Revealing...' : '🎭 Reveal Results'}
               </button>
             )}
             <StatusBadge status={event.status} />
-          </div>
         </div>
       </header>
 
