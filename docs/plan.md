@@ -218,12 +218,12 @@ flowchart LR
 interface Event {
   id: string;                    // Auto-generated 4-letter code (e.g., "ABXK"), filtered against offensive word blocklist
   name: string;                  // Event title — displayed prominently on all views (e.g., "Best Team Costume")
-  createdBy: string;             // Votekeeper's user ID
+  createdBy: string;             // Votekeeper's email (lowercase)
   createdAt: string;             // ISO date
   status: 'setup' | 'open' | 'closed' | 'revealing' | 'complete';
   config: {
     votesPerAttendee: number;    // Default 3, configurable 1-10
-    liveVoteDisplay: 'hidden' | 'total' | 'per-option';  // Default 'total'
+    theme?: string;              // Color theme ID (default 'indigo')
   };
   openedAt?: string;             // When voting was opened
   closedAt?: string;             // When voting was closed
@@ -285,10 +285,18 @@ interface VoterSession {
 ### Votekeeper (Allowlist)
 ```typescript
 interface Votekeeper {
-  email: string;                 // Primary key (lowercase)
-  displayName: string;           // From Microsoft profile
-  addedBy: string;               // Email of who invited them
+  userId: string;                // Primary key — email address (lowercase)
+  displayName: string;           // From Microsoft profile or invite form
+  addedBy: string;               // Email of who invited them (or 'system' for seed)
   addedAt: string;
+}
+```
+
+The `listVotekeepers` endpoint enriches each votekeeper with event counts:
+```typescript
+interface VotekeeperWithStats extends Votekeeper {
+  completedEvents: number;       // Events with status 'complete'
+  activeEvents: number;          // Events with any other status
 }
 ```
 
@@ -335,7 +343,8 @@ POST   /api/events/:id/complete        Finalize event (mark complete)
 ### Voting Options (Votekeeper Only)
 ```
 POST   /api/events/:id/options         Add voting option
-PUT    /api/events/:id/options/:optId  Update voting option
+GET    /api/events/:id/options          List options for event
+PATCH  /api/events/:id/options/:optId  Update voting option
 DELETE /api/events/:id/options/:optId  Remove voting option (setup or open — votes for deleted options discarded)
 PATCH  /api/events/:id/options/reorder Reorder options
 ```
@@ -343,27 +352,30 @@ PATCH  /api/events/:id/options/reorder Reorder options
 ### Public / Attendee Endpoints
 ```
 GET    /api/events/:id/public          Get event info + options (no auth required)
-POST   /api/events/:id/vote            Submit or update votes (no auth required, idempotent by voterId)
-GET    /api/events/:id/vote/:voterId   Get current vote allocations for a voter (reconnect support)
+POST   /api/events/:id/vote            Submit or update votes (no auth, idempotent by session cookie)
+GET    /api/events/:id/vote            Get current vote allocations for session (reconnect support)
+GET    /api/events/:id/vote/count      Get live vote counts (total + per-option)
 GET    /api/events/:id/results         Get results (available after reveal starts)
 GET    /api/events/:id/results/status  Poll for reveal progress
-GET    /api/events/:id/report          Get shareable results report data (available after complete)
-GET    /api/events/:id/report/pdf      Download PDF export (generated server-side once, cached for all)
+GET    /api/events/:id/results/pdf     Download PDF export (generated server-side via pdf-lib)
 ```
 
 ### Votekeeper Management (Votekeeper Only)
 ```
-GET    /api/votekeepers                List all votekeepers
+GET    /api/votekeepers                List all votekeepers (with event count stats)
 POST   /api/votekeepers                Invite new votekeeper (by email)
-DELETE /api/votekeepers/:email         Remove votekeeper
+DELETE /api/votekeepers/:userId        Remove votekeeper (userId = email)
+POST   /api/votekeepers/seed           Seed first votekeeper (no votekeepers required)
 GET    /api/me                         Get current user's auth + votekeeper status
 ```
 
 ### Security
-- **Rate Limiting**: Vote submission — 5 requests per IP per minute to prevent abuse
-- **Device Fingerprint**: Combines browser characteristics + random session ID
-- **Vote Validation**: Server-side check that total votes ≤ configured allocation
-- **Event Codes**: Auto-generated 4-letter codes, filtered against offensive word blocklist
+- **Device Fingerprint**: Combines browser characteristics + random session ID (client-side generation in `fingerprint.ts`, sent via `x-device-fingerprint` header)
+- **Session Cookie**: `evote_session` cookie set on vote submission (SameSite=Lax, Max-Age=86400) — identifies returning voters
+- **Vote Validation**: Server-side check that total votes ≤ configured allocation, no negatives, option existence verified
+- **Event Codes**: Auto-generated 4-letter codes, filtered against ~50-word blocklist + consonant-heavy letter set to reduce offensive combos
+- ~~**Rate Limiting**~~: Not yet implemented (planned: 5 requests per IP per minute)
+- ~~**HttpOnly Cookie**~~: Not yet implemented (session cookie currently lacks HttpOnly flag)
 
 ---
 
@@ -388,14 +400,15 @@ App
 │   ├── Closed / Waiting (voting closed, waiting for reveal)
 │   └── Results (reveal animation + report download)
 ├── /dashboard (Votekeeper — list events)
-├── /event/:eventId (Votekeeper — main event management view)
+├── /create (Votekeeper — create new event)
+├── /manage/:eventId (Votekeeper — main event management view)
 │   ├── Setup (add/edit options, projectable)
 │   ├── Voting Open (live status, QR code prominent)
 │   ├── Closed (ready to reveal)
 │   ├── Revealing (click-to-reveal, last-to-first)
 │   └── Complete (final results + generate report)
 ├── /results/:eventId (Public shareable results page — no auth)
-└── /settings (Votekeeper management)
+└── /votekeepers (Votekeeper management — list, invite, remove)
 ```
 
 ### Projector-Friendly Design
@@ -424,18 +437,21 @@ Since attendees don't log in, we use a multi-layered approach:
 
 ### Device Fingerprint
 - Combine browser characteristics (user agent, screen size, language, timezone, etc.)
-- Hash into a stable fingerprint
+- Hash into a stable fingerprint via `fingerprint.ts`
+- Sent to server via `x-device-fingerprint` header, stored on vote records
 - Not perfectly unique, but a reasonable deterrent
 
 ### Session Cookie
-- Set an HttpOnly cookie on vote submission
+- `evote_session` cookie set on vote submission (SameSite=Lax, Max-Age=86400)
 - Server checks for existing cookie on `/api/events/:id/vote`
 - Prevents simple re-submissions from same browser
+- **Note**: Cookie does not currently have the HttpOnly flag
 
 ### Server-Side Validation
 - Total votes per voter ≤ `votesPerAttendee`
-- Resubmission from same `voterId` replaces previous votes (supports vote changes)
-- Rate limit by IP address
+- No negative vote values allowed
+- All voted option IDs must exist on the event
+- Resubmission from same session replaces previous votes (supports vote changes)
 
 ### Accepted Trade-offs
 - A determined user could vote from multiple devices — this is acceptable for a fun event context
@@ -571,19 +587,18 @@ event-vote/
 │       │   └── AuthContext.tsx   # Auth provider + useAuth hook
 │       ├── components/
 │       │   ├── ErrorBoundary.tsx
-│       │   ├── OfflineBanner.tsx
-│       │   └── WinnerBanner.tsx
+│       │   ├── OfflineBanner.tsx       │   ├── ThemePicker.tsx│       │   └── WinnerBanner.tsx
 │       ├── pages/
 │       │   ├── LandingPage.tsx       # Join event or sign in
 │       │   ├── DashboardPage.tsx     # Votekeeper event list
 │       │   ├── CreateEventPage.tsx   # Create new event
 │       │   ├── ManageEventPage.tsx   # Votekeeper event management + reveal
 │       │   ├── VoterPage.tsx         # Attendee ballot + voting
-│       │   ├── ResultsPage.tsx       # Public results + PDF
-│       │   ├── MockAuthPage.tsx      # Dev-only mock login
+│       │   ├── ResultsPage.tsx       # Public results + PDF       │   ├── VotekeepersPage.tsx    # Votekeeper list + invite│       │   ├── MockAuthPage.tsx      # Dev-only mock login
 │       │   └── NotFoundPage.tsx
-│       └── utils/
-│           └── fingerprint.ts   # Device fingerprint generation
+       ├── utils/
+       │   └── fingerprint.ts   # Device fingerprint generation
+       └── themes.ts            # Color theme definitions
 ├── start-dev.ps1                # Windows dev launcher
 ├── start-dev.sh                 # macOS/Linux dev launcher
 ├── stop-dev.ps1                 # Stop dev processes (Windows)

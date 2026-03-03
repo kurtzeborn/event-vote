@@ -27,7 +27,7 @@ export interface EventConfig {
 export interface VoteEvent {
   id: string;                    // Auto-generated 4-letter code
   name: string;                  // Event title
-  createdBy: string;             // Votekeeper's user ID
+  createdBy: string;             // Votekeeper's email (lowercase)
   createdAt: string;             // ISO date
   status: EventStatus;
   config: EventConfig;
