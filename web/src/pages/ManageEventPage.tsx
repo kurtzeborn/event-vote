@@ -7,7 +7,6 @@ import { api } from '../api.ts';
 import type { VoteEvent } from '../types.ts';
 import { MEDAL, STATUS_LABELS, getRankBarColor } from '../constants.ts';
 import WinnerBanner from '../components/WinnerBanner.tsx';
-import ThemePicker from '../components/ThemePicker.tsx';
 import { getTheme } from '../themes.ts';
 
 export default function ManageEventPage() {
@@ -94,7 +93,7 @@ export default function ManageEventPage() {
   return (
     <div className={`min-h-screen ${t.pageBg}`}>
       {/* Header */}
-      <header className={`${t.headerBg} shadow-sm`}>
+      <header className={`${t.headerBg} shadow-sm sticky top-0 z-30`}>
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="text-white/70 hover:text-white">
@@ -150,6 +149,41 @@ export default function ManageEventPage() {
               </button>
             )}
         </div>
+        {/* Live Stats (inside header so it sticks) */}
+        {voteCounts.data && (
+          <div className="bg-white/15 border-t border-white/20">
+            <div className="max-w-4xl mx-auto px-4 py-2 flex items-center gap-6">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-2xl font-bold text-white">{voteCounts.data.totalVoters}</span>
+                  <span className="text-sm text-white/70">Voters</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-2xl font-bold text-white">{voteCounts.data.totalVotes}</span>
+                  <span className="text-sm text-white/70">Votes</span>
+                </div>
+              </div>
+              {voteCounts.data.perOption && event.options && (
+                <button
+                  onClick={() => setShowPerOption((v) => !v)}
+                  className="text-sm text-white/70 hover:text-white font-medium transition-colors ml-auto"
+                >
+                  {showPerOption ? 'Hide' : 'Show'} Per-Option
+                </button>
+              )}
+            </div>
+            {showPerOption && voteCounts.data.perOption && event.options && (
+              <div className="max-w-4xl mx-auto px-4 pb-2 space-y-1">
+                {event.options.map((opt) => (
+                  <div key={opt.id} className="flex items-center justify-between text-sm">
+                    <span className="text-white/80">{opt.title}</span>
+                    <span className="font-semibold text-white">{voteCounts.data!.perOption[opt.id] ?? 0}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {/* QR Code Modal */}
@@ -178,56 +212,6 @@ export default function ManageEventPage() {
       )}
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        {/* Live Stats */}
-        {voteCounts.data && (
-          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">Live Stats</h2>
-              <button
-                onClick={() => setShowPerOption((v) => !v)}
-                className={`text-sm ${t.accentText} font-medium transition-colors`}
-              >
-                {showPerOption ? 'Hide' : 'Show'} Per-Option
-              </button>
-            </div>
-            <div className="flex gap-8">
-              <div>
-                <div className={`text-3xl font-bold ${t.accentText.split(' ')[0]}`}>{voteCounts.data.totalVoters}</div>
-                <div className="text-sm text-gray-500">Voters</div>
-              </div>
-              <div>
-                <div className={`text-3xl font-bold ${t.accentText.split(' ')[0]}`}>{voteCounts.data.totalVotes}</div>
-                <div className="text-sm text-gray-500">Total Votes</div>
-              </div>
-            </div>
-            {showPerOption && voteCounts.data.perOption && event.options && (
-              <div className="mt-4 border-t border-gray-100 pt-4 space-y-2">
-                {event.options.map((opt) => (
-                  <div key={opt.id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-700">{opt.title}</span>
-                    <span className={`font-semibold ${t.accentText.split(' ')[0]}`}>{voteCounts.data!.perOption[opt.id] ?? 0} votes</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Theme (setup only) */}
-        {event.status === 'setup' && (
-          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Color Theme</h2>
-            <ThemePicker
-              value={event.config.theme ?? 'indigo'}
-              onChange={(themeId) => {
-                api.updateEvent(event.id, { config: { theme: themeId } }).then(() => {
-                  queryClient.invalidateQueries({ queryKey: ['event', event.id] });
-                });
-              }}
-            />
-          </section>
-        )}
-
         {/* Options */}
         <OptionsSection event={event} queryClient={queryClient} />
       </main>
@@ -574,19 +558,25 @@ function OptionsSection({
                   )}
                 </div>
                 {canEdit && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <button
                       onClick={() => startEdit(option)}
-                      className={`text-gray-400 hover:${t.accentText.split(' ')[0]} text-sm`}
-                    >Edit</button>
+                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Edit"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
                     <button
                       onClick={() => {
                         if (confirm(`Delete "${option.title}"?`)) {
                           deleteMutation.mutate(option.id);
                         }
                       }}
-                      className="text-red-400 hover:text-red-600 text-sm"
-                    >Delete</button>
+                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                      title="Delete"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    </button>
                   </div>
                 )}
               </>
