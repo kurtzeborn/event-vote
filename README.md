@@ -1,5 +1,8 @@
 # Event Vote
 
+[![deploy](https://img.shields.io/github/actions/workflow/status/kurtzeborn/event-vote/deploy.yml?label=deploy)](https://github.com/kurtzeborn/event-vote/actions/workflows/deploy.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/kurtzeborn/event-vote/ci.yml?label=CI)](https://github.com/kurtzeborn/event-vote/actions/workflows/ci.yml)
+
 Live audience voting for events. Attendees scan a QR code or enter a 4-letter event code to cast their votes from their phones — no login required.
 
 ## Features
